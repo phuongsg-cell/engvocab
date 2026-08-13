@@ -218,6 +218,13 @@
 
     <!-- JAVASCRIPT APP LOGIC -->
     <script>
+// Đoạn code hiển thị lỗi trực tiếp lên màn hình iPad để debug
+window.onerror = function (msg, url, lineNo, columnNo, error) {
+  alert("LỖI PHÁT SINH: " + msg + "\nTại dòng: " + lineNo);
+  return false;
+};
+
+        
         // --- APP STATE ---
         let vocabularies = JSON.parse(localStorage.getItem('vocab_data') || '[]');
         let currentFcIndex = 0;
