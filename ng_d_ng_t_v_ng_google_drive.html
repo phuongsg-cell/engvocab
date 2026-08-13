@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ứng Dụng Học Từ Vựng - Đồng Bộ Google Drive</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        .card-flip {
+            perspective: 1000px;
+        }
+        .card-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            backface-visibility: hidden;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
+
+    <!-- Header Navigation -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-book-bookmark text-2xl"></i>
+                <h1 class="text-xl font-bold tracking-wide">VocabCloud</h1>
+            </div>
+
+            <!-- Google Drive Status & Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <div id="driveStatus" class="text-xs px-3 py-1.5 rounded-full bg-indigo-700 text-indigo-100 flex items-center gap-2">
+                    <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+                    <span id="statusText">Chưa kết nối Google Drive</span>
+                </div>
+
+                <button id="btnLogin" onclick="handleAuthClick()" class="bg-white text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-semibold shadow transition flex items-center gap-2">
+                    <i class="fa-brands fa-google text-red-500"></i>
+                    <span>Kết nối Drive</span>
+                </button>
+
+                <button id="btnSync" onclick="syncDataToDrive()" class="hidden bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Đồng bộ</span>
+                </button>
+
+                <button onclick="openConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 text-white p-2 rounded-lg transition" title="Cấu hình Google Client ID">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto px-4 py-6">
+
+        <!-- Tabs Navigation -->
+        <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl p-2 shadow-sm gap-2">
+            <button onclick="switchTab('list')" id="tab-list" class="flex-1 py-2 px-4 rounded-lg font-medium text-sm transition flex items-center justify-center gap-2 bg-indigo-50 text-indigo-600">
+                <i class="fa-solid fa-list-check"></i> Danh sách từ
+            </button>
+            <button onclick="switchTab('flashcard')" id="tab-flashcard" class="flex-1 py-2 px-4 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-clone"></i> Thẻ ghi nhớ (Flashcard)
+            </button>
+            <button onclick="switchTab('add')" id="tab-add" class="flex-1 py-2 px-4 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-plus-circle"></i> Thêm từ mới
+            </button>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="hidden fixed bottom-5 right-5 z-50 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 transition-all duration-300">
+            <i id="toastIcon" class="fa-solid fa-circle-info text-indigo-400"></i>
+            <span id="toastMsg" class="text-sm">Thông báo</span>
+        </div>
+
+        <!-- TAB 1: DANH SÁCH TỪ VỰNG -->
+        <section id="sec-list" class="space-y-4">
+            <!-- Search & Filter Bar -->
+            <div class="bg-white p-4 rounded-xl shadow-sm flex flex-col sm:flex-row gap-3 justify-between items-center">
+                <div class="relative w-full sm:w-80">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="searchInput" oninput="renderVocabList()" placeholder="Tìm từ vựng, nghĩa..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center gap-3 w-full sm:w-auto justify-between">
+                    <span id="vocabCount" class="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full">Tổng: 0 từ</span>
+                    <button onclick="clearAllData()" class="text-xs text-red-500 hover:text-red-700 transition">
+                        <i class="fa-solid fa-trash-can"></i> Xóa tất cả
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vocab Cards Grid -->
+            <div id="vocabGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Cards render JS -->
+            </div>
+        </section>
+
+        <!-- TAB 2: FLASHCARD PRACTICE -->
+        <section id="sec-flashcard" class="hidden flex flex-col items-center justify-center py-8">
+            <div id="flashcardContainer" class="w-full max-w-md">
+                <div id="cardFlip" onclick="toggleFlip()" class="card-flip w-full h-72 cursor-pointer">
+                    <div id="cardInner" class="card-inner relative w-full h-full rounded-2xl shadow-lg border border-indigo-100">
+                        <!-- Front -->
+                        <div class="card-front absolute inset-0 bg-white rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-3">
+                            <span class="text-xs font-semibold uppercase text-indigo-500 tracking-wider">Từ vựng</span>
+                            <h2 id="fcWord" class="text-3xl font-bold text-slate-800">Word</h2>
+                            <p id="fcPhonetic" class="text-slate-400 italic text-sm">/phonetic/</p>
+                            <p class="text-xs text-slate-300 mt-4"><i class="fa-solid fa-rotate text-xs"></i> Chạm để xem nghĩa</p>
+                        </div>
+                        <!-- Back -->
+                        <div class="card-back absolute inset-0 bg-indigo-600 text-white rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-3">
+                            <span class="text-xs font-semibold uppercase text-indigo-200 tracking-wider">Định nghĩa</span>
+                            <h3 id="fcMeaning" class="text-2xl font-bold">Nghĩa tiếng Việt</h3>
+                            <p id="fcExample" class="text-indigo-100 italic text-sm mt-2">"Ví dụ minh họa"</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flashcard Controls -->
+                <div class="flex items-center justify-between mt-6 px-4">
+                    <button onclick="prevCard()" class="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl shadow-sm text-sm font-semibold transition">
+                        <i class="fa-solid fa-chevron-left"></i> Trước
+                    </button>
+                    <span id="fcProgress" class="text-xs text-slate-500 font-medium">0 / 0</span>
+                    <button onclick="nextCard()" class="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl shadow-sm text-sm font-semibold transition">
+                        Sau <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="noFlashcardMsg" class="hidden text-center py-12 text-slate-400">
+                <i class="fa-solid fa-box-open text-4xl mb-3"></i>
+                <p>Chưa có từ vựng nào để luyện tập. Hãy thêm từ vựng mới!</p>
+            </div>
+        </section>
+
+        <!-- TAB 3: THÊM TỪ MỚI -->
+        <section id="sec-add" class="hidden max-w-xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-indigo-600"></i> Thêm Từ Vựng Mới
+            </h2>
+            <form id="vocabForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Từ / Cụm từ (*)</label>
+                    <input type="text" id="inputWord" required placeholder="Ví dụ: Resilience" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Phiên âm</label>
+                    <input type="text" id="inputPhonetic" placeholder="Ví dụ: /rɪˈzɪliəns/" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nghĩa (*)</label>
+                    <input type="text" id="inputMeaning" required placeholder="Ví dụ: Khả năng phục hồi, kiên cường" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Câu ví dụ</label>
+                    <textarea id="inputExample" rows="2" placeholder="Ví dụ: Her resilience helped her overcome the hardship." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl shadow transition">
+                    Lưu từ vựng
+                </button>
+            </form>
+        </section>
+
+    </main>
+
+    <!-- CONFIG GOOGLE CLIENT ID MODAL -->
+    <div id="configModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 relative">
+            <button onclick="closeConfigModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <i class="fa-brands fa-google text-red-500"></i> Cấu hình Google Cloud API
+            </h3>
+            <p class="text-xs text-slate-500 mb-4">
+                Để ứng dụng kết nối trực tiếp với Google Drive cá nhân của bạn, hãy nhập **Client ID** được tạo từ Google Cloud Console.
+            </p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Google OAuth Client ID</label>
+                    <input type="text" id="inputClientId" placeholder="xxxxxxxxxxxx-xxxxxxxx.apps.googleusercontent.com" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
+                    <p class="font-semibold"><i class="fa-solid fa-circle-info"></i> Hướng dẫn tạo Client ID nhanh:</p>
+                    <ol class="list-decimal list-inside space-y-0.5 text-slate-600">
+                        <li>Truy cập <a href="https://console.cloud.google.com/" target="_blank" class="text-indigo-600 underline">Google Cloud Console</a>.</li>
+                        <li>Tạo dự án mới & Bật API **Google Drive API**.</li>
+                        <li>Tại trang Credentials -> Tạo OAuth 2.0 Client ID (Web Application).</li>
+                        <li>Thêm địa chỉ trang web của bạn vào **Authorized JavaScript origins**.</li>
+                    </ol>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button onclick="saveClientIdConfig()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-xl text-sm transition">
+                        Lưu cấu hình
+                    </button>
+                    <button onclick="closeConfigModal()" class="px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-2 rounded-xl text-sm transition">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        // --- APP STATE ---
+        let vocabularies = JSON.parse(localStorage.getItem('vocab_data') || '[]');
+        let currentFcIndex = 0;
+        let tokenClient = null;
+        let accessToken = localStorage.getItem('gdrive_token') || null;
+        let driveFileId = localStorage.getItem('gdrive_file_id') || null;
+
+        const DRIVE_FILENAME = 'vocab_backup_data.json';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+        // --- INIT APP ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderVocabList();
+            initGoogleClient();
+            checkDriveTokenStatus();
+        });
+
+        // --- TAB SWITCHING ---
+        function switchTab(tabName) {
+            ['list', 'flashcard', 'add'].forEach(t => {
+                document.getElementById(`sec-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).className = 'flex-1 py-2 px-4 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2';
+            });
+            document.getElementById(`sec-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).className = 'flex-1 py-2 px-4 rounded-lg font-medium text-sm transition text-indigo-600 bg-indigo-50 flex items-center justify-center gap-2';
+
+            if (tabName === 'flashcard') {
+                initFlashcard();
+            }
+        }
+
+        // --- VOCABULARY CRUD ---
+        function renderVocabList() {
+            const grid = document.getElementById('vocabGrid');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            grid.innerHTML = '';
+
+            const filtered = vocabularies.filter(v => 
+                v.word.toLowerCase().includes(search) || 
+                v.meaning.toLowerCase().includes(search)
+            );
+
+            document.getElementById('vocabCount').innerText = `Tổng: ${vocabularies.length} từ`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-white rounded-2xl text-slate-400">
+                        <i class="fa-solid fa-folder-open text-4xl mb-2"></i>
+                        <p class="text-sm">Không tìm thấy từ vựng nào.</p>
+                    </div>`;
+                return;
+            }
+
+            filtered.forEach((v) => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between space-y-3 hover:shadow-md transition';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-lg font-bold text-slate-800">${escapeHtml(v.word)}</h3>
+                            <button onclick="deleteVocab(${v.id})" class="text-slate-300 hover:text-red-500 transition p-1">
+                                <i class="fa-solid fa-trash-can text-sm"></i>
+                            </button>
+                        </div>
+                        ${v.phonetic ? `<p class="text-xs text-indigo-500 font-mono mb-2">${escapeHtml(v.phonetic)}</p>` : ''}
+                        <p class="text-sm font-semibold text-slate-700">${escapeHtml(v.meaning)}</p>
+                        ${v.example ? `<p class="text-xs text-slate-500 italic mt-2 bg-slate-50 p-2 rounded-lg">"${escapeHtml(v.example)}"</p>` : ''}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const newVocab = {
+                id: Date.now(),
+                word: document.getElementById('inputWord').value.trim(),
+                phonetic: document.getElementById('inputPhonetic').value.trim(),
+                meaning: document.getElementById('inputMeaning').value.trim(),
+                example: document.getElementById('inputExample').value.trim(),
+                createdAt: new Date().toISOString()
+            };
+
+            vocabularies.unshift(newVocab);
+            saveLocalData();
+            document.getElementById('vocabForm').reset();
+            showToast('Đã thêm từ mới thành công!', 'success');
+            switchTab('list');
+
+            // Auto sync to Drive if connected
+            if (accessToken) {
+                syncDataToDrive(true);
+            }
+        }
+
+        function deleteVocab(id) {
+            if (confirm('Bạn có chắc chắn muốn xóa từ vựng này?')) {
+                vocabularies = vocabularies.filter(v => v.id !== id);
+                saveLocalData();
+                renderVocabList();
+                showToast('Đã xóa từ vựng', 'info');
+
+                if (accessToken) {
+                    syncDataToDrive(true);
+                }
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('CẢNH BÁO: Tất cả từ vựng lưu trên máy sẽ bị xóa! Bạn có chắc không?')) {
+                vocabularies = [];
+                saveLocalData();
+                renderVocabList();
+                showToast('Đã xóa toàn bộ dữ liệu máy', 'info');
+            }
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('vocab_data', JSON.stringify(vocabularies));
+        }
+
+        // --- FLASHCARD LOGIC ---
+        function initFlashcard() {
+            const container = document.getElementById('flashcardContainer');
+            const noMsg = document.getElementById('noFlashcardMsg');
+
+            if (vocabularies.length === 0) {
+                container.classList.add('hidden');
+                noMsg.classList.remove('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            noMsg.classList.add('hidden');
+            currentFcIndex = 0;
+            showCard(currentFcIndex);
+        }
+
+        function showCard(index) {
+            const cardInner = document.getElementById('cardInner');
+            cardInner.classList.remove('is-flipped');
+
+            setTimeout(() => {
+                const v = vocabularies[index];
+                document.getElementById('fcWord').innerText = v.word;
+                document.getElementById('fcPhonetic').innerText = v.phonetic || '';
+                document.getElementById('fcMeaning').innerText = v.meaning;
+                document.getElementById('fcExample').innerText = v.example ? `"${v.example}"` : '';
+                document.getElementById('fcProgress').innerText = `${index + 1} / ${vocabularies.length}`;
+            }, 150);
+        }
+
+        function toggleFlip() {
+            document.getElementById('cardInner').classList.toggle('is-flipped');
+        }
+
+        function nextCard() {
+            if (vocabularies.length === 0) return;
+            currentFcIndex = (currentFcIndex + 1) % vocabularies.length;
+            showCard(currentFcIndex);
+        }
+
+        function prevCard() {
+            if (vocabularies.length === 0) return;
+            currentFcIndex = (currentFcIndex - 1 + vocabularies.length) % vocabularies.length;
+            showCard(currentFcIndex);
+        }
+
+        // --- GOOGLE DRIVE API INTEGRATION ---
+        function initGoogleClient() {
+            const clientId = localStorage.getItem('gdrive_client_id');
+            if (!clientId) return;
+
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: clientId,
+                    scope: SCOPES,
+                    callback: (response) => {
+                        if (response.error) {
+                            showToast('Đăng nhập Google thất bại!', 'error');
+                            return;
+                        }
+                        accessToken = response.access_token;
+                        localStorage.setItem('gdrive_token', accessToken);
+                        updateDriveStatusUI(true);
+                        showToast('Kết nối Google Drive thành công!', 'success');
+                        
+                        // Sync or Load data after login
+                        autoFetchFromDrive();
+                    },
+                });
+            } catch (err) {
+                console.error("Lỗi khởi tạo GIS Client:", err);
+            }
+        }
+
+        function handleAuthClick() {
+            const clientId = localStorage.getItem('gdrive_client_id');
+            if (!clientId) {
+                openConfigModal();
+                showToast('Vui lòng nhập Client ID trước!', 'info');
+                return;
+            }
+
+            if (!tokenClient) {
+                initGoogleClient();
+            }
+
+            if (tokenClient) {
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            }
+        }
+
+        function checkDriveTokenStatus() {
+            if (accessToken) {
+                updateDriveStatusUI(true);
+            } else {
+                updateDriveStatusUI(false);
+            }
+        }
+
+        function updateDriveStatusUI(isConnected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const btnLogin = document.getElementById('btnLogin');
+            const btnSync = document.getElementById('btnSync');
+
+            if (isConnected) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse';
+                text.innerText = 'Đã kết nối Drive';
+                btnLogin.classList.add('hidden');
+                btnSync.classList.remove('hidden');
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400 inline-block';
+                text.innerText = 'Chưa kết nối Drive';
+                btnLogin.classList.remove('hidden');
+                btnSync.classList.add('hidden');
+            }
+        }
+
+        // Upload/Sync Data to Google Drive
+        async function syncDataToDrive(silent = false) {
+            if (!accessToken) return;
+
+            if (!silent) showToast('Đang đồng bộ dữ liệu...', 'info');
+
+            try {
+                const fileContent = JSON.stringify(vocabularies, null, 2);
+                const metadata = {
+                    name: DRIVE_FILENAME,
+                    mimeType: 'application/json',
+                };
+
+                // Check if file already exists
+                if (!driveFileId) {
+                    driveFileId = await findDriveFile();
+                }
+
+                let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+                let method = 'POST';
+
+                if (driveFileId) {
+                    url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart`;
+                    method = 'PATCH';
+                }
+
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                form.append('file', new Blob([fileContent], { type: 'application/json' }));
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    body: form,
+                });
+
+                if (res.status === 401) {
+                    // Token expired
+                    accessToken = null;
+                    localStorage.removeItem('gdrive_token');
+                    updateDriveStatusUI(false);
+                    showToast('Phiên đăng nhập hết hạn. Vui lòng kết nối lại.', 'error');
+                    return;
+                }
+
+                const data = await res.json();
+                if (data.id) {
+                    driveFileId = data.id;
+                    localStorage.setItem('gdrive_file_id', driveFileId);
+                    if (!silent) showToast('Đồng bộ Drive hoàn tất!', 'success');
+                }
+            } catch (err) {
+                console.error("Drive sync error:", err);
+                if (!silent) showToast('Lỗi đồng bộ lên Google Drive!', 'error');
+            }
+        }
+
+        // Find file on Google Drive
+        async function findDriveFile() {
+            try {
+                const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILENAME}' and trashed=false`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const data = await res.json();
+                if (data.files && data.files.length > 0) {
+                    return data.files[0].id;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            return null;
+        }
+
+        // Fetch Data from Google Drive on Connect
+        async function autoFetchFromDrive() {
+            try {
+                const fileId = await findDriveFile();
+                if (!fileId) return;
+
+                driveFileId = fileId;
+                localStorage.setItem('gdrive_file_id', driveFileId);
+
+                const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                if (res.ok) {
+                    const driveVocabs = await res.json();
+                    if (Array.isArray(driveVocabs) && driveVocabs.length > 0) {
+                        if (confirm(`Tìm thấy ${driveVocabs.length} từ vựng trên Google Drive! Bạn có muốn nạp vào ứng dụng không?`)) {
+                            vocabularies = driveVocabs;
+                            saveLocalData();
+                            renderVocabList();
+                            showToast('Đã nạp dữ liệu từ Google Drive!', 'success');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching from drive:", err);
+            }
+        }
+
+        // --- CONFIG MODAL LOGIC ---
+        function openConfigModal() {
+            document.getElementById('inputClientId').value = localStorage.getItem('gdrive_client_id') || '';
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.add('hidden');
+        }
+
+        function saveClientIdConfig() {
+            const cid = document.getElementById('inputClientId').value.trim();
+            if (cid) {
+                localStorage.setItem('gdrive_client_id', cid);
+                initGoogleClient();
+                showToast('Đã lưu Google Client ID!', 'success');
+                closeConfigModal();
+            } else {
+                localStorage.removeItem('gdrive_client_id');
+                showToast('Đã xóa Client ID', 'info');
+                closeConfigModal();
+            }
+        }
+
+        // --- UTILS ---
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+            if (type === 'success') toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            else if (type === 'error') toastIcon.className = 'fa-solid fa-circle-exclamation text-red-400';
+            else toastIcon.className = 'fa-solid fa-circle-info text-indigo-400';
+
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+    </script>
+</body>
+</html>
