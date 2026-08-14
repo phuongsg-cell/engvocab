@@ -611,6 +611,30 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
             if (!str) return '';
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         }
+
+        // =========================================================
+        let vocabularyList = JSON.parse(localStorage.getItem('vocabulary')) || [];
+
+        function renderVocabulary() {
+          const container = document.getElementById('vocabContainer'); // Lưu ý: 'vocabContainer' phải trùng với id thẻ div hiển thị trên HTML của bạn
+          if (!container) return;
+
+          if (vocabularyList.length === 0) {
+            container.innerHTML = '<p>Chưa có từ vựng nào. Hãy thêm từ mới hoặc kết nối Google Drive để tải dữ liệu!</p>';
+            return;
+          }
+
+          container.innerHTML = vocabularyList.map(item => `
+            <div class="vocab-card">
+              <strong>${item.word}</strong>: ${item.meaning}
+              <button onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">🔊</button>
+            </div>
+          `).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+          renderVocabulary();
+        });
     </script>
 </body>
 </html>
