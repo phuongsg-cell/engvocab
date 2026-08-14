@@ -322,13 +322,13 @@
 
       if (isOnline) {
         statusEl.className = 'status-indicator online';
-        statusEl.innerHTML = '🟢 Đã kết nối Google Drive';
-        authBtn.innerText = 'Đăng xuất';
+        statusEl.innerHTML = '🟢 Google Drive Connected';
+        authBtn.innerText = 'Sign-out';
         addBtn.disabled = false;
       } else {
         statusEl.className = 'status-indicator offline';
-        statusEl.innerHTML = '🔴 Chưa kết nối Google Drive';
-        authBtn.innerText = 'Đăng nhập Drive';
+        statusEl.innerHTML = '🔴 Not connected';
+        authBtn.innerText = 'Sign-in';
         addBtn.disabled = true;
       }
     }
