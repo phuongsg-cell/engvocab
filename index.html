@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>English Practice & Vocab Hub</title>
+  <title>Vocabulary Flashcard & Sync Hub</title>
   
   <!-- Google API SDKs -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -19,6 +19,7 @@
       --card: #ffffff;
       --text: #1e293b;
       --border: #e2e8f0;
+      --subtext: #64748b;
     }
     
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,7 +30,7 @@
       color: var(--text);
       line-height: 1.6;
       padding: 20px;
-      max-width: 800px;
+      max-width: 700px;
       margin: 0 auto;
     }
 
@@ -37,7 +38,8 @@
       text-align: center;
       margin-bottom: 20px;
     }
-    .header h1 { color: var(--primary); font-size: 1.8rem; margin-bottom: 5px; }
+    .header h1 { color: var(--primary); font-size: 1.8rem; margin-bottom: 4px; }
+    .header p { color: var(--subtext); font-size: 0.95rem; }
 
     /* Drive Connection Status */
     .status-bar {
@@ -48,7 +50,7 @@
       padding: 12px 16px;
       background: var(--card);
       border-radius: 10px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
       border: 1px solid var(--border);
     }
     .status-indicator { font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
@@ -64,16 +66,21 @@
       border: 1px solid var(--border);
     }
 
-    h2 { color: var(--primary); font-size: 1.3rem; margin-bottom: 12px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
+    h2 { color: var(--primary); font-size: 1.25rem; margin-bottom: 14px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
 
-    /* UI Controls */
+    /* Form Inputs */
+    .input-group { margin-bottom: 10px; }
     input[type="text"] {
       width: 100%;
       padding: 10px 14px;
-      margin: 8px 0;
+      margin-top: 4px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
-      font-size: 1rem;
+      font-size: 0.95rem;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
     }
     
     .btn {
@@ -88,19 +95,16 @@
       transition: background 0.2s;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
     }
     .btn:hover { background-color: var(--primary-hover); }
     .btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
 
     /* Flashcard Style */
-    .flashcard-container {
-      perspective: 1000px;
-      margin: 15px 0;
-    }
     .flashcard {
       width: 100%;
-      min-height: 160px;
+      min-height: 180px;
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       color: white;
       border-radius: 12px;
@@ -111,129 +115,96 @@
       padding: 20px;
       text-align: center;
       cursor: pointer;
-      box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+      box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);
       position: relative;
+      user-select: none;
     }
-    .flashcard .word { font-size: 1.8rem; font-weight: bold; margin-bottom: 8px; }
-    .flashcard .meaning { font-size: 1.2rem; opacity: 0.95; display: none; }
+    .flashcard .word { font-size: 1.9rem; font-weight: bold; margin-bottom: 2px; }
+    .flashcard .phonetic { font-size: 1.05rem; opacity: 0.85; font-style: italic; margin-bottom: 12px; }
+    .flashcard .meaning { font-size: 1.25rem; opacity: 0.95; display: none; background: rgba(255,255,255,0.15); padding: 6px 16px; border-radius: 6px; }
     .flashcard.flipped .meaning { display: block; }
-    .flashcard-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .flashcard-hint { position: absolute; bottom: 8px; font-size: 0.75rem; opacity: 0.6; }
 
-    /* Quiz & Practice Styles */
-    .question-title { font-weight: 600; font-size: 1.05rem; margin-bottom: 12px; }
-    .options-grid { display: grid; gap: 8px; }
-    .option-btn {
-      background: #f1f5f9;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      text-align: left;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-    .option-btn.correct-choice { background: #dcfce7 !important; border-color: var(--success) !important; color: #15803d; font-weight: bold; }
-    .option-btn.wrong-choice { background: #fee2e2 !important; border-color: var(--danger) !important; color: #b91c1c; }
+    .flashcard-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
 
-    .feedback {
-      margin-top: 12px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      display: none;
-    }
-    .feedback.correct { display: block; background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
-    .feedback.incorrect { display: block; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
-
-    /* Vocab List */
+    /* Vocab List Style */
     .vocab-item {
-      padding: 12px;
+      padding: 12px 0;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .vocab-actions { display: flex; gap: 8px; align-items: center; }
+    .vocab-item:last-child { border-bottom: none; }
+    .vocab-info .word-title { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+    .vocab-info .phonetic-text { color: var(--subtext); font-size: 0.9rem; margin-left: 6px; font-style: italic; }
+    .vocab-info .meaning-text { color: #475569; font-size: 0.95rem; margin-top: 2px; }
+
     .audio-btn {
-      background: #e2e8f0;
-      border: none;
+      background: #f1f5f9;
+      border: 1px solid var(--border);
       border-radius: 50%;
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 1rem;
     }
-    .audio-btn:hover { background: #cbd5e1; }
+    .audio-btn:hover { background: #e2e8f0; }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>📖 English Practice & Vocab Hub</h1>
-    <p>Trình độ B1-B2 • Luyện đọc & Từ vựng Tương tác</p>
+    <h1>🎴 Flashcard & Vocab Hub</h1>
+    <p>Ghi nhớ từ vựng tiếng Anh • Đồng bộ Google Drive</p>
   </div>
 
   <!-- DRIVE STATUS BAR -->
   <div class="status-bar">
     <div id="status" class="status-indicator offline">🔴 Chưa kết nối Google Drive</div>
-    <button id="auth-btn" class="btn" onclick="handleAuthClick()">Đăng nhập Google Drive</button>
+    <button id="auth-btn" class="btn" onclick="handleAuthClick()">Đăng nhập Drive</button>
   </div>
 
-  <!-- SECTION 1: FLASHCARD (HỌC TỪ VỰNG) -->
+  <!-- SECTION 1: FLASHCARD (LUYỆN NHỚ) -->
   <div class="card">
-    <h2>🎴 Flashcard Từ Vựng</h2>
+    <h2>🧠 Luyện Nhớ (Flashcard)</h2>
     <div id="flashcard-area">
       <div class="flashcard" id="flashcard" onclick="flipCard()">
         <div class="word" id="fc-word">Prescription</div>
+        <div class="phonetic" id="fc-phonetic">/prɪˈskrɪp.ʃən/</div>
         <div class="meaning" id="fc-meaning">Toa thuốc / Đơn thuốc</div>
+        <div class="flashcard-hint">(Chạm vào thẻ để xem nghĩa)</div>
       </div>
       <div class="flashcard-controls">
         <button class="btn" onclick="prevCard()">⬅️ Từ trước</button>
         <button class="audio-btn" onclick="speakCurrentCard()" title="Phát âm">🔊</button>
-        <span id="fc-counter" style="font-weight: 600;">1 / 1</span>
+        <span id="fc-counter" style="font-weight: 600; color: var(--subtext);">1 / 1</span>
         <button class="btn" onclick="nextCard()">Từ sau ➡️</button>
       </div>
     </div>
   </div>
 
-  <!-- SECTION 2: THÊM TỪ VỰNG & TỰ ĐỘNG LƯU DRIVE -->
+  <!-- SECTION 2: THÊM TỪ VỰNG MỚI -->
   <div class="card">
     <h2>➕ Thêm Từ Vựng Mới</h2>
-    <input type="text" id="new-word" placeholder="Nhập từ tiếng Anh (VD: Recommendation)">
-    <input type="text" id="new-meaning" placeholder="Nhập nghĩa/ghi chú (VD: Lời khuyên, sự giới thiệu)">
-    <button id="add-btn" class="btn" onclick="addWord()" disabled>Lưu vào Google Drive & Cập nhật ngay</button>
+    <div class="input-group">
+      <input type="text" id="new-word" placeholder="Từ tiếng Anh (VD: Recommendation)">
+    </div>
+    <div class="input-group">
+      <input type="text" id="new-phonetic" placeholder="Phiên âm IPA (VD: /ˌrek.ə.menˈdeɪ.ʃən/) - Không bắt buộc">
+    </div>
+    <div class="input-group">
+      <input type="text" id="new-meaning" placeholder="Nghĩa / Ghi chú (VD: Lời khuyên, sự giới thiệu)">
+    </div>
+    <button id="add-btn" class="btn" style="width: 100%; margin-top: 6px;" onclick="addWord()" disabled>
+      Lưu vào Google Drive & Cập nhật
+    </button>
   </div>
 
-  <!-- SECTION 3: BÀI ĐỌC TƯƠNG TÁC (QUIZ) -->
-  <div class="card">
-    <h2>📝 Bài Tập Đọc Hiểu & Ngữ Pháp (B1)</h2>
-    <p style="margin-bottom: 15px;"><em>Chủ đề: Urgent Care Clinic vs. Emergency Room</em></p>
-    
-    <!-- Q1 -->
-    <div style="margin-bottom: 20px;" id="q1">
-      <div class="question-title">1. You should go to an Urgent Care Clinic instead of the ER when:</div>
-      <div class="options-grid">
-        <button class="option-btn" onclick="checkMC(1, 0, false)">A. You have a life-threatening medical emergency.</button>
-        <button class="option-btn" onclick="checkMC(1, 1, true)">B. You have a minor injury like a sprained ankle.</button>
-        <button class="option-btn" onclick="checkMC(1, 2, false)">C. You need complex surgery immediately.</button>
-      </div>
-      <div class="feedback" id="feedback-q1"></div>
-    </div>
-
-    <!-- Q2 -->
-    <div style="margin-bottom: 20px;" id="q2">
-      <div class="question-title">2. What does a "co-pay" mean at the clinic reception?</div>
-      <div class="options-grid">
-        <button class="option-btn" onclick="checkMC(2, 0, false)">A. The full cost of the treatment without insurance.</button>
-        <button class="option-btn" onclick="checkMC(2, 1, false)">B. A tip given to the doctor after treatment.</button>
-        <button class="option-btn" onclick="checkMC(2, 2, true)">C. A fixed fee you pay before seeing the doctor.</button>
-      </div>
-      <div class="feedback" id="feedback-q2"></div>
-    </div>
-  </div>
-
-  <!-- SECTION 4: DANH SÁCH TỪ VỰNG DỪNG DỮ LIỆU TỪ DRIVE -->
+  <!-- SECTION 3: DANH SÁCH TỪ VỰNG -->
   <div class="card">
     <h2>📋 Danh Sách Từ Vựng Của Bạn</h2>
     <div id="vocab-list">Đang tải danh sách...</div>
@@ -249,11 +220,11 @@
     let accessToken = null;
     let driveFileId = null;
 
-    // Default Vocab Data
+    // Dữ liệu mẫu ban đầu (có thêm trường phonetic)
     let vocabData = [
-      { id: 1, word: 'Prescription', meaning: 'Toa thuốc / Đơn thuốc do bác sĩ kê' },
-      { id: 2, word: 'Co-pay', meaning: 'Phí đồng thanh toán cố định khi khám bệnh' },
-      { id: 3, word: 'Sprained ankle', meaning: 'Trật khớp / Bông gân cổ chân' }
+      { id: 1, word: 'Prescription', phonetic: '/prɪˈskrɪp.ʃən/', meaning: 'Toa thuốc / Đơn thuốc do bác sĩ kê' },
+      { id: 2, word: 'Co-pay', phonetic: '/ˈkoʊ.peɪ/', meaning: 'Phí đồng thanh toán cố định khi khám bệnh' },
+      { id: 3, word: 'Sprained ankle', phonetic: '/spreɪnd ˈæŋ.kəl/', meaning: 'Trật khớp / Bông gân cổ chân' }
     ];
     let currentCardIndex = 0;
 
@@ -269,7 +240,7 @@
       gapi.load('client', async () => {
         await gapi.client.init({});
         await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
-        restoreSession(); // Tự động khôi phục session khi reload trên iPad/Mobile
+        restoreSession();
       });
     }
 
@@ -279,12 +250,10 @@
         scope: SCOPES,
         callback: async (resp) => {
           if (resp.error) return;
-          
           accessToken = resp.access_token;
           const expiresIn = resp.expires_in || 3600;
           const expiresAt = Date.now() + expiresIn * 1000;
 
-          // Lưu token vào localStorage để giữ kết nối liên tục khi reload
           localStorage.setItem('gdrive_token', accessToken);
           localStorage.setItem('gdrive_expires_at', expiresAt);
 
@@ -340,12 +309,12 @@
       } else {
         statusEl.className = 'status-indicator offline';
         statusEl.innerHTML = '🔴 Chưa kết nối Google Drive';
-        authBtn.innerText = 'Đăng nhập Google Drive';
+        authBtn.innerText = 'Đăng nhập Drive';
         addBtn.disabled = true;
       }
     }
 
-    // --- DRIVE SYNC LOGIC (REALTIME WRITING & LOADING) ---
+    // --- DRIVE SYNC LOGIC ---
     async function syncFromDrive() {
       try {
         const res = await gapi.client.drive.files.list({
@@ -376,17 +345,19 @@
 
     async function addWord() {
       const wordInput = document.getElementById('new-word');
+      const phoneticInput = document.getElementById('new-phonetic');
       const meaningInput = document.getElementById('new-meaning');
 
       const word = wordInput.value.trim();
+      const phonetic = phoneticInput.value.trim();
       const meaning = meaningInput.value.trim();
 
       if (!word || !meaning) {
-        alert('Vui lòng nhập đầy đủ từ và nghĩa!');
+        alert('Vui lòng nhập Từ tiếng Anh và Nghĩa!');
         return;
       }
 
-      const newItem = { id: Date.now(), word, meaning };
+      const newItem = { id: Date.now(), word, phonetic, meaning };
       vocabData.unshift(newItem); // Thêm từ mới lên đầu danh sách
 
       const addBtn = document.getElementById('add-btn');
@@ -394,13 +365,12 @@
       addBtn.innerText = 'Đang lưu lên Drive...';
 
       try {
-        // Đồng bộ đẩy file lên Drive ngay lập tức
         await updateDriveFile(vocabData);
 
         wordInput.value = '';
+        phoneticInput.value = '';
         meaningInput.value = '';
         
-        // Cập nhật lại giao diện UI ngay tức thì
         currentCardIndex = 0;
         renderFlashcard();
         renderVocabList();
@@ -409,7 +379,7 @@
         vocabData.shift();
       } finally {
         addBtn.disabled = false;
-        addBtn.innerText = 'Lưu vào Google Drive & Cập nhật ngay';
+        addBtn.innerText = 'Lưu vào Google Drive & Cập nhật';
       }
     }
 
@@ -421,6 +391,7 @@
       
       const item = vocabData[currentCardIndex];
       document.getElementById('fc-word').innerText = item.word;
+      document.getElementById('fc-phonetic').innerText = item.phonetic || '';
       document.getElementById('fc-meaning').innerText = item.meaning;
       document.getElementById('fc-counter').innerText = `${currentCardIndex + 1} / ${vocabData.length}`;
     }
@@ -443,13 +414,13 @@
 
     function speakText(text) {
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // Dừng câu đang nói trước đó (nếu có)
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
-        utterance.rate = 0.9; // Tốc độ nói vừa phải
+        utterance.rate = 0.9;
         window.speechSynthesis.speak(utterance);
       } else {
-        alert('Trình duyệt của bạn không hỗ trợ tính năng phát âm audio.');
+        alert('Trình duyệt không hỗ trợ phát âm audio.');
       }
     }
 
@@ -462,42 +433,24 @@
     function renderVocabList() {
       const listEl = document.getElementById('vocab-list');
       if (vocabData.length === 0) {
-        listEl.innerHTML = '<p>Chưa có từ vựng nào.</p>';
+        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center;">Chưa có từ vựng nào.</p>';
         return;
       }
 
       listEl.innerHTML = vocabData.map(item => `
         <div class="vocab-item">
-          <div>
-            <strong>${escapeHtml(item.word)}</strong>: ${escapeHtml(item.meaning)}
+          <div class="vocab-info">
+            <div>
+              <span class="word-title">${escapeHtml(item.word)}</span>
+              ${item.phonetic ? `<span class="phonetic-text">${escapeHtml(item.phonetic)}</span>` : ''}
+            </div>
+            <div class="meaning-text">${escapeHtml(item.meaning)}</div>
           </div>
-          <div class="vocab-actions">
+          <div>
             <button class="audio-btn" onclick="speakText('${escapeHtml(item.word)}')" title="Phát âm">🔊</button>
           </div>
         </div>
       `).join('');
-    }
-
-    // --- QUIZ PRACTICE FUNCTIONS ---
-    const mcExplanations = {
-      1: { correct: "Chính xác! Urgent Care dùng cho bệnh nhẹ (minor injury) như trật khớp.", wrong: "Chưa đúng. Trường hợp nguy hiểm tính mạng phải đến ER." },
-      2: { correct: "Chính xác! Co-pay là phí cố định bạn trả trước khi khám.", wrong: "Chưa đúng. Co-pay là khoản đồng thanh toán theo quy định bảo hiểm." }
-    };
-
-    function checkMC(qNum, optionIndex, isCorrect) {
-      const card = document.getElementById(`q${qNum}`);
-      const buttons = card.querySelectorAll('.option-btn');
-      const feedback = document.getElementById(`feedback-q${qNum}`);
-
-      buttons.forEach((btn, idx) => {
-        btn.disabled = true;
-        if (idx === optionIndex) {
-          btn.classList.add(isCorrect ? 'correct-choice' : 'wrong-choice');
-        }
-      });
-
-      feedback.className = `feedback ${isCorrect ? 'correct' : 'incorrect'}`;
-      feedback.innerHTML = `<strong>${isCorrect ? '🎉 Đúng rồi!' : '❌ Chưa đúng!'}</strong><br>${isCorrect ? mcExplanations[qNum].correct : mcExplanations[qNum].wrong}`;
     }
 
     // --- DRIVE REST API HELPERS ---
@@ -521,7 +474,7 @@
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
   </script>
 </body>
