@@ -15,6 +15,7 @@
       --primary-hover: #1d4ed8;
       --success: #16a34a;
       --danger: #dc2626;
+      --danger-hover: #b91c1c;
       --bg: #f8fafc;
       --card: #ffffff;
       --text: #1e293b;
@@ -134,13 +135,17 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
     }
     .vocab-item:last-child { border-bottom: none; }
+    .vocab-info { flex: 1; }
     .vocab-info .word-title { font-size: 1.05rem; font-weight: 600; color: var(--text); }
     .vocab-info .phonetic-text { color: var(--subtext); font-size: 0.9rem; margin-left: 6px; font-style: italic; }
     .vocab-info .meaning-text { color: #475569; font-size: 0.95rem; margin-top: 2px; }
 
-    .audio-btn {
+    .action-btns { display: flex; gap: 6px; align-items: center; }
+
+    .icon-btn {
       background: #f1f5f9;
       border: 1px solid var(--border);
       border-radius: 50%;
@@ -150,9 +155,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1rem;
+      font-size: 0.95rem;
+      transition: background 0.2s, color 0.2s;
     }
-    .audio-btn:hover { background: #e2e8f0; }
+    .icon-btn:hover { background: #e2e8f0; }
+    .icon-btn.delete-btn:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: var(--danger);
+    }
   </style>
 </head>
 <body>
@@ -180,7 +191,7 @@
       </div>
       <div class="flashcard-controls">
         <button class="btn" onclick="prevCard()">⬅️ Từ trước</button>
-        <button class="audio-btn" onclick="speakCurrentCard()" title="Phát âm">🔊</button>
+        <button class="icon-btn" onclick="speakCurrentCard()" title="Phát âm">🔊</button>
         <span id="fc-counter" style="font-weight: 600; color: var(--subtext);">1 / 1</span>
         <button class="btn" onclick="nextCard()">Từ sau ➡️</button>
       </div>
@@ -220,7 +231,7 @@
     let accessToken = null;
     let driveFileId = null;
 
-    // Dữ liệu mẫu ban đầu (có thêm trường phonetic)
+    // Dữ liệu mẫu ban đầu
     let vocabData = [
       { id: 1, word: 'Prescription', phonetic: '/prɪˈskrɪp.ʃən/', meaning: 'Toa thuốc / Đơn thuốc do bác sĩ kê' },
       { id: 2, word: 'Co-pay', phonetic: '/ˈkoʊ.peɪ/', meaning: 'Phí đồng thanh toán cố định khi khám bệnh' },
@@ -330,7 +341,7 @@
             alt: 'media',
           });
           const fetchedData = Array.isArray(fileRes.result) ? fileRes.result : (fileRes.body ? JSON.parse(fileRes.body) : []);
-          if (fetchedData.length > 0) vocabData = fetchedData;
+          if (fetchedData.length >= 0) vocabData = fetchedData;
         } else {
           driveFileId = await createNewDriveFile(vocabData);
         }
@@ -383,20 +394,67 @@
       }
     }
 
+    // --- TÍNH NĂNG XÓA TỪ VỰNG ---
+    async function deleteWord(id) {
+      const targetWord = vocabData.find(item => item.id === id);
+      if (!targetWord) return;
+
+      if (!confirm(`Bạn có chắc muốn xóa từ "${targetWord.word}" không?`)) {
+        return;
+      }
+
+      // Lọc bỏ từ bị xóa
+      const previousData = [...vocabData];
+      vocabData = vocabData.filter(item => item.id !== id);
+
+      // Cập nhật chỉ số Flashcard nếu vượt quá độ dài mảng mới
+      if (currentCardIndex >= vocabData.length) {
+        currentCardIndex = Math.max(0, vocabData.length - 1);
+      }
+
+      renderFlashcard();
+      renderVocabList();
+
+      // Nếu đã kết nối Drive, đẩy dữ liệu mới lên
+      if (accessToken && driveFileId) {
+        try {
+          await updateDriveFile(vocabData);
+        } catch (err) {
+          alert('Lỗi khi cập nhật Google Drive: ' + err.message);
+          vocabData = previousData; // Khôi phục dữ liệu nếu lưu lỗi
+          renderFlashcard();
+          renderVocabList();
+        }
+      }
+    }
+
     // --- FLASHCARD & AUDIO FUNCTIONS ---
     function renderFlashcard() {
-      if (vocabData.length === 0) return;
+      const fcWord = document.getElementById('fc-word');
+      const fcPhonetic = document.getElementById('fc-phonetic');
+      const fcMeaning = document.getElementById('fc-meaning');
+      const fcCounter = document.getElementById('fc-counter');
       const card = document.getElementById('flashcard');
+
       card.classList.remove('flipped');
-      
+
+      if (vocabData.length === 0) {
+        fcWord.innerText = 'Chưa có từ vựng';
+        fcPhonetic.innerText = '';
+        fcMeaning.innerText = 'Hãy thêm từ mới ở bên dưới';
+        fcCounter.innerText = '0 / 0';
+        return;
+      }
+
       const item = vocabData[currentCardIndex];
-      document.getElementById('fc-word').innerText = item.word;
-      document.getElementById('fc-phonetic').innerText = item.phonetic || '';
-      document.getElementById('fc-meaning').innerText = item.meaning;
-      document.getElementById('fc-counter').innerText = `${currentCardIndex + 1} / ${vocabData.length}`;
+      fcWord.innerText = item.word;
+      fcPhonetic.innerText = item.phonetic || '';
+      fcMeaning.innerText = item.meaning;
+      fcCounter.innerText = `${currentCardIndex + 1} / ${vocabData.length}`;
     }
 
     function flipCard() {
+      if (vocabData.length === 0) return;
       document.getElementById('flashcard').classList.toggle('flipped');
     }
 
@@ -446,8 +504,9 @@
             </div>
             <div class="meaning-text">${escapeHtml(item.meaning)}</div>
           </div>
-          <div>
-            <button class="audio-btn" onclick="speakText('${escapeHtml(item.word)}')" title="Phát âm">🔊</button>
+          <div class="action-btns">
+            <button class="icon-btn" onclick="speakText('${escapeHtml(item.word)}')" title="Phát âm">🔊</button>
+            <button class="icon-btn delete-btn" onclick="deleteWord(${item.id})" title="Xóa từ này">🗑️</button>
           </div>
         </div>
       `).join('');
