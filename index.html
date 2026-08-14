@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocabulary Flashcard & Sync Hub</title>
+  <title>Vocabulary Flashcard </title>
   
   <!-- Google API SDKs -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -169,8 +169,8 @@
 <body>
 
   <div class="header">
-    <h1>🎴 Flashcard & Vocab Hub</h1>
-    <p>Ghi nhớ từ vựng tiếng Anh • Đồng bộ Google Drive</p>
+    <h1>🎴 Flashcard & Vocabulary Hub</h1>
+    <p>Practice English Vocabulary • 10 Minutes Everyday</p>
   </div>
 
   <!-- DRIVE STATUS BAR -->
@@ -181,44 +181,44 @@
 
   <!-- SECTION 1: FLASHCARD (LUYỆN NHỚ) -->
   <div class="card">
-    <h2>🧠 Luyện Nhớ (Flashcard)</h2>
+    <h2>🧠 Flashcard</h2>
     <div id="flashcard-area">
       <div class="flashcard" id="flashcard" onclick="flipCard()">
         <div class="word" id="fc-word">Prescription</div>
         <div class="phonetic" id="fc-phonetic">/prɪˈskrɪp.ʃən/</div>
         <div class="meaning" id="fc-meaning">Toa thuốc / Đơn thuốc</div>
-        <div class="flashcard-hint">(Chạm vào thẻ để xem nghĩa)</div>
+        <div class="flashcard-hint">(Tap the card to see the meaning)</div>
       </div>
       <div class="flashcard-controls">
-        <button class="btn" onclick="prevCard()">⬅️ Từ trước</button>
+        <button class="btn" onclick="prevCard()">⬅️ Back</button>
         <button class="icon-btn" onclick="speakCurrentCard()" title="Phát âm">🔊</button>
         <span id="fc-counter" style="font-weight: 600; color: var(--subtext);">1 / 1</span>
-        <button class="btn" onclick="nextCard()">Từ sau ➡️</button>
+        <button class="btn" onclick="nextCard()">Next ➡️</button>
       </div>
     </div>
   </div>
 
   <!-- SECTION 2: THÊM TỪ VỰNG MỚI -->
   <div class="card">
-    <h2>➕ Thêm Từ Vựng Mới</h2>
+    <h2>➕ Add a new vocabulary</h2>
     <div class="input-group">
-      <input type="text" id="new-word" placeholder="Từ tiếng Anh (VD: Recommendation)">
+      <input type="text" id="new-word" placeholder="Word or Phrase (Example: Recommendation)">
     </div>
     <div class="input-group">
-      <input type="text" id="new-phonetic" placeholder="Phiên âm IPA (VD: /ˌrek.ə.menˈdeɪ.ʃən/) - Không bắt buộc">
+      <input type="text" id="new-phonetic" placeholder="IPA Transcription (Example: /ˌrek.ə.menˈdeɪ.ʃən/) - (optional)">
     </div>
     <div class="input-group">
-      <input type="text" id="new-meaning" placeholder="Nghĩa / Ghi chú (VD: Lời khuyên, sự giới thiệu)">
+      <input type="text" id="new-meaning" placeholder="Meaning (Example: Lời khuyên, sự giới thiệu)">
     </div>
     <button id="add-btn" class="btn" style="width: 100%; margin-top: 6px;" onclick="addWord()" disabled>
-      Lưu vào Google Drive & Cập nhật
+      Save 
     </button>
   </div>
 
   <!-- SECTION 3: DANH SÁCH TỪ VỰNG -->
   <div class="card">
-    <h2>📋 Danh Sách Từ Vựng Của Bạn</h2>
-    <div id="vocab-list">Đang tải danh sách...</div>
+    <h2>📋 Vocabulary List</h2>
+    <div id="vocab-list">Loading...</div>
   </div>
 
   <script>
