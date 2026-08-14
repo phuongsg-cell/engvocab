@@ -218,6 +218,10 @@
   <!-- SECTION 3: DANH SÁCH TỪ VỰNG -->
   <div class="card">
     <h2>📋 Vocabulary List</h2>
+    <!-- Ô TÌM KIẾM MỚI BỔ SUNG -->
+    <div class="input-group" style="margin-bottom: 16px;">
+      <input type="text" id="search-input" placeholder="🔍 Search by word or meaning..." oninput="renderVocabList()">
+    </div>
     <div id="vocab-list">Loading...</div>
   </div>
 
@@ -237,12 +241,16 @@
       { id: 2, word: 'Co-pay', phonetic: '/ˈkoʊ.peɪ/', meaning: 'Phí đồng thanh toán cố định khi khám bệnh' },
       { id: 3, word: 'Sprained ankle', phonetic: '/spreɪnd ˈæŋ.kəl/', meaning: 'Trật khớp / Bông gân cổ chân' }
     ];
+
+    // Danh sách 20 từ hiển thị cho Flashcard
+    let flashcardDeck = [];
     let currentCardIndex = 0;
 
     // --- INITIALIZATION ---
     window.onload = () => {
       initGapi();
       initGis();
+      prepareFlashcardDeck();
       renderFlashcard();
       renderVocabList();
     };
@@ -325,6 +333,27 @@
       }
     }
 
+    // --- LOGIC CHỌN 20 TỪ CHO FLASHCARD (10 MỚI + 10 NGẪU NHIÊN) ---
+    function prepareFlashcardDeck() {
+      if (!vocabData || vocabData.length === 0) {
+        flashcardDeck = [];
+        return;
+      }
+
+      // Lấy tối đa 10 từ mới nhất (nằm ở đầu mảng vocabData)
+      const newest10 = vocabData.slice(0, 10);
+
+      // Lấy phần còn lại trong kho dữ liệu
+      const remainingPool = vocabData.slice(10);
+
+      // Trộn ngẫu nhiên phần còn lại và lấy 10 từ
+      const shuffledRemaining = [...remainingPool].sort(() => 0.5 - Math.random());
+      const random10 = shuffledRemaining.slice(0, 10);
+
+      // Gộp lại thành bộ thẻ 20 từ (10 mới + 10 ngẫu nhiên cũ)
+      flashcardDeck = [...newest10, ...random10];
+    }
+
     // --- DRIVE SYNC LOGIC ---
     async function syncFromDrive() {
       try {
@@ -346,6 +375,7 @@
           driveFileId = await createNewDriveFile(vocabData);
         }
         currentCardIndex = 0;
+        prepareFlashcardDeck();
         renderFlashcard();
         renderVocabList();
       } catch (err) {
@@ -383,6 +413,7 @@
         meaningInput.value = '';
         
         currentCardIndex = 0;
+        prepareFlashcardDeck();
         renderFlashcard();
         renderVocabList();
       } catch (err) {
@@ -390,7 +421,7 @@
         vocabData.shift();
       } finally {
         addBtn.disabled = false;
-        addBtn.innerText = 'Lưu vào Google Drive & Cập nhật';
+        addBtn.innerText = 'Save';
       }
     }
 
@@ -403,25 +434,24 @@
         return;
       }
 
-      // Lọc bỏ từ bị xóa
       const previousData = [...vocabData];
       vocabData = vocabData.filter(item => item.id !== id);
 
-      // Cập nhật chỉ số Flashcard nếu vượt quá độ dài mảng mới
-      if (currentCardIndex >= vocabData.length) {
-        currentCardIndex = Math.max(0, vocabData.length - 1);
+      prepareFlashcardDeck();
+      if (currentCardIndex >= flashcardDeck.length) {
+        currentCardIndex = Math.max(0, flashcardDeck.length - 1);
       }
 
       renderFlashcard();
       renderVocabList();
 
-      // Nếu đã kết nối Drive, đẩy dữ liệu mới lên
       if (accessToken && driveFileId) {
         try {
           await updateDriveFile(vocabData);
         } catch (err) {
           alert('Lỗi khi cập nhật Google Drive: ' + err.message);
-          vocabData = previousData; // Khôi phục dữ liệu nếu lưu lỗi
+          vocabData = previousData;
+          prepareFlashcardDeck();
           renderFlashcard();
           renderVocabList();
         }
@@ -438,35 +468,35 @@
 
       card.classList.remove('flipped');
 
-      if (vocabData.length === 0) {
-        fcWord.innerText = 'Chưa có từ vựng';
+      if (flashcardDeck.length === 0) {
+        fcWord.innerText = 'No vocabulary';
         fcPhonetic.innerText = '';
-        fcMeaning.innerText = 'Hãy thêm từ mới ở bên dưới';
+        fcMeaning.innerText = 'Add new words below';
         fcCounter.innerText = '0 / 0';
         return;
       }
 
-      const item = vocabData[currentCardIndex];
+      const item = flashcardDeck[currentCardIndex];
       fcWord.innerText = item.word;
       fcPhonetic.innerText = item.phonetic || '';
       fcMeaning.innerText = item.meaning;
-      fcCounter.innerText = `${currentCardIndex + 1} / ${vocabData.length}`;
+      fcCounter.innerText = `${currentCardIndex + 1} / ${flashcardDeck.length}`;
     }
 
     function flipCard() {
-      if (vocabData.length === 0) return;
+      if (flashcardDeck.length === 0) return;
       document.getElementById('flashcard').classList.toggle('flipped');
     }
 
     function prevCard() {
-      if (vocabData.length === 0) return;
-      currentCardIndex = (currentCardIndex - 1 + vocabData.length) % vocabData.length;
+      if (flashcardDeck.length === 0) return;
+      currentCardIndex = (currentCardIndex - 1 + flashcardDeck.length) % flashcardDeck.length;
       renderFlashcard();
     }
 
     function nextCard() {
-      if (vocabData.length === 0) return;
-      currentCardIndex = (currentCardIndex + 1) % vocabData.length;
+      if (flashcardDeck.length === 0) return;
+      currentCardIndex = (currentCardIndex + 1) % flashcardDeck.length;
       renderFlashcard();
     }
 
@@ -483,19 +513,35 @@
     }
 
     function speakCurrentCard() {
-      if (vocabData.length > 0) {
-        speakText(vocabData[currentCardIndex].word);
+      if (flashcardDeck.length > 0) {
+        speakText(flashcardDeck[currentCardIndex].word);
       }
     }
 
+    // --- RENDER DANH SÁCH TỪ VỰNG VÀ TÌM KIẾM ---
     function renderVocabList() {
       const listEl = document.getElementById('vocab-list');
+      const searchInput = document.getElementById('search-input');
+      const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
       if (vocabData.length === 0) {
         listEl.innerHTML = '<p style="color: var(--subtext); text-align: center;">Chưa có từ vựng nào.</p>';
         return;
       }
 
-      listEl.innerHTML = vocabData.map(item => `
+      // Lọc danh sách theo từ tiếng Anh hoặc nghĩa tiếng Việt
+      const filteredData = vocabData.filter(item => {
+        const wordMatch = item.word && item.word.toLowerCase().includes(query);
+        const meaningMatch = item.meaning && item.meaning.toLowerCase().includes(query);
+        return wordMatch || meaningMatch;
+      });
+
+      if (filteredData.length === 0) {
+        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center;">Không tìm thấy từ phù hợp.</p>';
+        return;
+      }
+
+      listEl.innerHTML = filteredData.map(item => `
         <div class="vocab-item">
           <div class="vocab-info">
             <div>
