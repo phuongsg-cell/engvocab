@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocabulary Flashcard </title>
+  <title>Vocabulary Flashcard</title>
   
   <!-- Google API SDKs -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -290,7 +290,7 @@
     </div>
   </div>
 
-  <!-- SECTION 1: FLASHCARD (LUYỆN NHỚ) -->
+  <!-- SECTION 1: FLASHCARD -->
   <div class="card">
     <h2>🧠 Flashcard</h2>
     <div id="flashcard-area">
@@ -329,12 +329,10 @@
   <!-- SECTION 3: DANH SÁCH TỪ VỰNG -->
   <div class="card">
     <h2>📋 Vocabulary List</h2>
-    <!-- Ô TÌM KIẾM -->
     <div class="input-group" style="margin-bottom: 16px;">
       <input type="text" id="search-input" placeholder="🔍 Search by word or meaning..." oninput="onSearchInput()">
     </div>
     <div id="vocab-list">Loading...</div>
-    <!-- CỤM PHÂN TRANG -->
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
@@ -348,22 +346,18 @@
     let accessToken = null;
     let driveFileId = null;
 
-    // Dữ liệu mẫu ban đầu
     let vocabData = [
       { id: 1, word: 'Prescription', phonetic: '/prɪˈskrɪp.ʃən/', meaning: 'Toa thuốc / Đơn thuốc do bác sĩ kê', addedAt: '2026-08-14' },
       { id: 2, word: 'Co-pay', phonetic: '/ˈkoʊ.peɪ/', meaning: 'Phí đồng thanh toán cố định khi khám bệnh', addedAt: '2026-08-14' },
       { id: 3, word: 'Sprained ankle', phonetic: '/spreɪnd ˈæŋ.kəl/', meaning: 'Trật khớp / Bông gân cổ chân', addedAt: '2026-08-14' }
     ];
 
-    // Danh sách 20 từ hiển thị cho Flashcard
     let flashcardDeck = [];
     let currentCardIndex = 0;
 
-    // Phân trang
     let currentPage = 1;
     const itemsPerPage = 20;
 
-    // Danh sách Photos kiến thức đa dạng
     let photoFeed = [];
     let currentPhotoIndex = 0;
 
@@ -456,7 +450,6 @@
       }
     }
 
-    // --- THỐNG KÊ TỪ VỰNG ---
     function updateStats() {
       const totalEl = document.getElementById('stat-total');
       const todayEl = document.getElementById('stat-today');
@@ -478,7 +471,7 @@
       todayEl.innerText = countToday;
     }
 
-    // --- WIDGET MULTI-PHOTO (NASA AN TOÀN + 5 BỘ ẢNH KIẾN THỨC BẤT KỲ) ---
+    // --- WIDGET DYNAMIC PHOTO FEED (NASA REALTIME + 5 DYNAMIC UNSPLASH RANDOM PHOTOS) ---
     async function loadDailyWidget() {
       photoFeed = [];
       
@@ -498,8 +491,6 @@
           throw new Error('NASA media is not a standard image');
         }
       } catch (e) {
-        console.warn('NASA live API failed, using backup NASA high-res image:', e);
-        // Fallback NASA image (Earth & Space Observation)
         photoFeed.push({
           source: 'NASA Astronomy (Archive)',
           title: 'Earth Observation & Atmospheric Horizon',
@@ -509,46 +500,50 @@
         });
       }
 
-      // 2. Danh sách 5 ảnh kiến thức tổng hợp đa chủ đề (Địa lý, Hàng không, Nhiếp ảnh, Động vật, Kiến trúc)
-      const knowledgeGallery = [
+      // 2. PHƯƠNG ÁN 1: Tạo 5 ảnh ngẫu nhiên từ Unsplash tự đổi mỗi ngày/mỗi lần load
+      const topics = [
         {
-          source: 'Geography & Geology',
-          title: 'Glacial Topography and Alpine Valleys',
-          imgId: 'photo-1464822759023-fed622ff2c3b',
-          caption: 'High-altitude alpine mountains carved by historical glacial movement. Physical geography examines how ice erosion reshapes tectonic landforms over millennia.'
+          tag: 'geography,mountains',
+          source: 'Physical Geography & Terrain',
+          title: 'Topographic Formations & Glacial Geology',
+          caption: 'High-altitude mountainous terrain demonstrating tectonic uplifting and historical glacial erosion patterns over geological timeframes.'
         },
         {
-          source: 'Aeronautics & Technology',
-          title: 'Commercial Aviation Flight Dynamics',
-          imgId: 'photo-1436491865332-7a61a109cc05',
-          caption: 'A commercial airliner traversing cruising altitude. Aerodynamics principles focus on thrust, lift, drag, and weight optimization during long-haul flights.'
+          tag: 'aviation,aircraft',
+          source: 'Aeronautics & Engineering',
+          title: 'Aero-thermodynamics & Flight Technology',
+          caption: 'Commercial and experimental aeronautical propulsion maneuvering through high-altitude air density and aerodynamic pressure channels.'
         },
         {
-          source: 'Zoology & Marine Biology',
-          title: 'Pelagic Marine Ecosystems & Fauna',
-          imgId: 'photo-1544551763-46a013bb70d5',
-          caption: 'Subsurface marine life operating within coastal coral systems. Oceanography studies the delicate ecological balance and biodiversity of underwater habitats.'
+          tag: 'wildlife,marine',
+          source: 'Zoology & Ecology',
+          title: 'Biodiversity & Ecosystem Habitats',
+          caption: 'Ecological interaction and organism adaptation within natural terrestrial or deep pelagic biological environments.'
         },
         {
-          source: 'Architectural Engineering',
-          title: 'Classical Structural Dome Geometry',
-          imgId: 'photo-1513694203232-719a280e022f',
-          caption: 'Vaulted architectural ceiling architecture illustrating load-bearing arch mechanics and symmetrical proportions from historic structural engineering.'
+          tag: 'architecture,building',
+          source: 'Architectural Design',
+          title: 'Structural Engineering & Geometry',
+          caption: 'Modern structural geometry emphasizing load-bearing distribution, aesthetic symmetry, and spatial spatial-flow design.'
         },
         {
-          source: 'Visual Fine Arts',
-          title: 'Color Spectrum & High Dynamic Range Exposure',
-          imgId: 'photo-1506744038136-46273834b3fb',
-          caption: 'Exposure bracketing in scenic photography allows capturing maximum tonal range between bright highlights and deep shadow details in high-contrast environments.'
+          tag: 'nature,landscape',
+          source: 'Environmental Science',
+          title: 'High Dynamic Range & Atmospheric Light',
+          caption: 'Natural lighting phenomena captured through precision optical exposure bracketing, displaying subtle tonal gradations across landscape vistas.'
         }
       ];
 
-      knowledgeGallery.forEach(item => {
+      // Dùng timestamp ngẫu nhiên làm cache-buster để ép Unsplash trả về 5 ảnh mới hoàn toàn mỗi ngày/mỗi lần tải
+      const timestamp = Date.now();
+
+      topics.forEach((item, idx) => {
+        const randomSeed = `${timestamp}_${idx}`;
         photoFeed.push({
           source: item.source,
           title: item.title,
-          imgUrl: `https://images.unsplash.com/${item.imgId}?auto=format&fit=crop&w=1000&q=80`,
-          hdUrl: `https://images.unsplash.com/${item.imgId}?auto=format&fit=crop&w=3840&q=100`, // Full HD / 4K
+          imgUrl: `https://source.unsplash.com/1000x800/?${item.tag}&sig=${randomSeed}`,
+          hdUrl: `https://source.unsplash.com/1920x1080/?${item.tag}&sig=${randomSeed}`,
           caption: item.caption
         });
       });
@@ -595,7 +590,6 @@
       renderDailyWidget();
     }
 
-    // --- LOGIC CHỌN 20 TỪ CHO FLASHCARD ---
     function prepareFlashcardDeck() {
       if (!vocabData || vocabData.length === 0) {
         flashcardDeck = [];
@@ -693,7 +687,6 @@
       }
     }
 
-    // --- TÍNH NĂNG XÓA TỪ VỰNG ---
     async function deleteWord(id) {
       const targetWord = vocabData.find(item => item.id === id);
       if (!targetWord) return;
