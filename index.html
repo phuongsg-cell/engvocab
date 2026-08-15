@@ -500,27 +500,33 @@
       todayEl.innerText = countToday;
     }
 
-    // --- WIDGET DYNAMIC PHOTO FEED (NASA REALTIME + 5 UNSPLASH CATEGORIES) ---
+    // --- WIDGET DYNAMIC PHOTO FEED (FIXED NASA APOD + UNSPLASH FEED) ---
     async function loadDailyWidget() {
       photoFeed = [];
 
-      // 1. Tải NASA Picture of the Day
+      // 1. Tải NASA Picture of the Day (Bổ sung kiểm tra kết quả chặt chẽ)
       try {
         const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
+        if (!nasaRes.ok) throw new Error(`NASA API error: ${nasaRes.status}`);
+        
         const nasaData = await nasaRes.json();
-        if (nasaData.media_type === 'image' && nasaData.url) {
+        
+        // NASA có thể trả về video thay vì hình ảnh, kiểm tra thuộc tính media_type
+        if (nasaData && nasaData.media_type === 'image' && (nasaData.url || nasaData.hdurl)) {
+          const imgUrl = nasaData.url || nasaData.hdurl;
+          const hdUrl = nasaData.hdurl || nasaData.url;
           photoFeed.push({
             source: 'NASA Astronomy',
             title: nasaData.title || 'Astronomy Picture of the Day',
-            imgUrl: nasaData.url,
-            hdUrl: nasaData.hdurl || nasaData.url,
+            imgUrl: imgUrl,
+            hdUrl: hdUrl,
             caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.'
           });
         } else {
-          throw new Error('Not image');
+          throw new Error('APOD content is not a static image');
         }
       } catch (e) {
-        // Fallback NASA ảnh không gian cố định nếu API bận
+        console.warn('Không thể lấy ảnh trực tiếp từ NASA APOD, chuyển sang ảnh chất lượng cao dự phòng:', e);
         photoFeed.push({
           source: 'NASA Astronomy Space',
           title: 'Atmospheric Horizon & Orbital View',
@@ -530,7 +536,7 @@
         });
       }
 
-      // 2. Tạo 5 ảnh ngẫu nhiên riêng biệt từ các danh mục Unsplash khác nhau
+      // 2. Tạo 5 ảnh ngẫu nhiên riêng biệt từ các danh mục Unsplash
       const categories = [
         { key: 'geography', label: 'Physical Geography' },
         { key: 'aviation', label: 'Aeronautics & Technology' },
@@ -541,7 +547,6 @@
 
       categories.forEach(cat => {
         const pool = UNSPLASH_POOLS[cat.key];
-        // Chọn ngẫu nhiên 1 ảnh từ kho của danh mục đó
         const selected = pool[Math.floor(Math.random() * pool.length)];
         
         photoFeed.push({
@@ -569,7 +574,7 @@
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
           <a href="${item.hdUrl}" target="_blank" title="Click to view full original high-resolution photo">
-            <img class="widget-img" src="${item.imgUrl}" alt="${escapeHtml(item.title)}" onError="this.src='https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80'" />
+            <img class="widget-img" src="${item.imgUrl}" alt="${escapeHtml(item.title)}" onError="this.onerror=null; this.src='https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80';" />
           </a>
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
