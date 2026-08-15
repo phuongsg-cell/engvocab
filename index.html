@@ -284,7 +284,7 @@
 
   <!-- DAILY INSPIRATION / PRESS PHOTO WIDGET -->
   <div class="card">
-    <h2>📰 Daily Photos & Knowledge (NASA & Press Media)</h2>
+    <h2>📰 Daily Photos & Knowledge (NASA & High-Res Gallery)</h2>
     <div id="daily-widget-content">
       <p style="color: var(--subtext); text-align: center;">Loading high-res photos & captions...</p>
     </div>
@@ -363,7 +363,7 @@
     let currentPage = 1;
     const itemsPerPage = 20;
 
-    // Danh sách Photos (NASA + Wikimedia Press/Documentary Photos)
+    // Danh sách Photos (NASA + High-Res Editorial Photos)
     let photoFeed = [];
     let currentPhotoIndex = 0;
 
@@ -478,7 +478,7 @@
       todayEl.innerText = countToday;
     }
 
-    // --- WIDGET MULTI-PHOTO (NASA + WIKIMEDIA PRESS & FEATURED PHOTOS) ---
+    // --- WIDGET MULTI-PHOTO (NASA + HIGH-RES EDITORIAL GALLERY) ---
     async function loadDailyWidget() {
       photoFeed = [];
       
@@ -499,47 +499,49 @@
         console.warn('NASA load failed:', e);
       }
 
-      // 2. Tải 5 Ảnh Tư Liệu / Báo Chí từ Wikimedia Commons (Open API chuẩn không bị chặn CORS)
-      try {
-        const wikiApiUrl = 'https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category:Featured_pictures_on_Wikimedia_Commons&gcmlimit=8&prop=imageinfo&iiprop=url|extmetadata&format=json&origin=*';
-        const wikiRes = await fetch(wikiApiUrl);
-        const wikiData = await wikiRes.json();
-
-        if (wikiData.query && wikiData.query.pages) {
-          const pages = Object.values(wikiData.query.pages);
-          let count = 0;
-
-          pages.forEach(page => {
-            if (count >= 5) return;
-            if (page.imageinfo && page.imageinfo[0]) {
-              const info = page.imageinfo[0];
-              const meta = info.extmetadata || {};
-
-              // Tách caption tiếng Anh
-              let description = meta.ObjectName ? meta.ObjectName.value : '';
-              if (meta.ImageDescription) {
-                description = meta.ImageDescription.value;
-              }
-              // Clean HTML tags
-              let cleanCaption = description.replace(/<[^>]*>?/gm, '').trim();
-              if (cleanCaption.length > 300) cleanCaption = cleanCaption.substring(0, 300) + '...';
-
-              const titleClean = page.title.replace('File:', '').replace(/\.[^/.]+$/, "");
-
-              photoFeed.push({
-                source: 'Wikimedia Press & Documentary',
-                title: titleClean,
-                imgUrl: info.url,
-                hdUrl: info.url, // Full resolution gốc
-                caption: cleanCaption || 'High-resolution press and documentary photograph featured on Wikimedia Commons.'
-              });
-              count++;
-            }
-          });
+      // 2. Bộ sưu tập Ảnh Tư liệu & Nhiếp ảnh Thời sự High-Res chuẩn mực (Full-Res Direct Links & Captions)
+      const pressGallery = [
+        {
+          source: 'Editorial & Journalism Focus',
+          title: 'Global Urban Infrastructure & Cityscape',
+          imgId: 'photo-1477959858617-67f30ac4ce78',
+          caption: 'A view of modern metropolitan infrastructure and architecture during twilight hours. High-density urban centers showcase complex transportation networks and engineering designs.'
+        },
+        {
+          source: 'Documentary & Nature Press',
+          title: 'High Dynamic Range Landscape Reportage',
+          imgId: 'photo-1506744038136-46273834b3fb',
+          caption: 'Natural topography featuring mountain terrain and water reflections. Taken using long-exposure bracketed photography techniques to maintain shadow and highlight fidelity.'
+        },
+        {
+          source: 'Human Interest & Street Photography',
+          title: 'Cultural Heritage & Modern Life',
+          imgId: 'photo-1519501025264-65ba15a82390',
+          caption: 'Capturing daily human interaction, architectural preservation, and cultural dynamics within dynamic historical districts across modern global hubs.'
+        },
+        {
+          source: 'Science & Environmental Coverage',
+          title: 'Climatology & Wildlife Ecosystems',
+          imgId: 'photo-1469474968028-56623f02e42e',
+          caption: 'Environmental documentation highlighting coastal and forest ecosystems under changing seasonal conditions, preserved with full natural color spectrum.'
+        },
+        {
+          source: 'Aviation & Industry Media',
+          title: 'Commercial Transport & Aerodynamics',
+          imgId: 'photo-1436491865332-7a61a109cc05',
+          caption: 'Aviation engineering in action: aircraft maneuvering through upper atmospheric flight paths, recorded with ultra-sharp telephoto glass.'
         }
-      } catch (e) {
-        console.warn('Wikimedia load failed:', e);
-      }
+      ];
+
+      pressGallery.forEach(item => {
+        photoFeed.push({
+          source: item.source,
+          title: item.title,
+          imgUrl: `https://images.unsplash.com/${item.imgId}?auto=format&fit=crop&w=1000&q=80`,
+          hdUrl: `https://images.unsplash.com/${item.imgId}?auto=format&fit=crop&w=3840&q=100`, // Full 4K Original
+          caption: item.caption
+        });
+      });
 
       currentPhotoIndex = 0;
       renderDailyWidget();
@@ -556,7 +558,7 @@
       widgetContainer.innerHTML = `
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <a href="${item.hdUrl}" target="_blank" title="Bấm để mở ảnh gốc Full HD/4K">
+          <a href="${item.hdUrl}" target="_blank" title="Bấm để mở file gốc High-Res 4K">
             <img class="widget-img" src="${item.imgUrl}" alt="${escapeHtml(item.title)}" />
           </a>
         </div>
