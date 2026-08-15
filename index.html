@@ -500,33 +500,41 @@
       todayEl.innerText = countToday;
     }
 
-    // --- WIDGET DYNAMIC PHOTO FEED (FIXED NASA APOD + UNSPLASH FEED) ---
+    // --- WIDGET DYNAMIC PHOTO FEED (NASA REALTIME + 5 UNSPLASH CATEGORIES) ---
     async function loadDailyWidget() {
       photoFeed = [];
 
-      // 1. Tải NASA Picture of the Day (Bổ sung kiểm tra kết quả chặt chẽ)
+      // 1. Tải NASA Picture of the Day (Đã sửa lỗi nạp & bẫy định dạng Video/Image)
       try {
         const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-        if (!nasaRes.ok) throw new Error(`NASA API error: ${nasaRes.status}`);
+        if (!nasaRes.ok) throw new Error('NASA API Network Error');
         
         const nasaData = await nasaRes.json();
-        
-        // NASA có thể trả về video thay vì hình ảnh, kiểm tra thuộc tính media_type
-        if (nasaData && nasaData.media_type === 'image' && (nasaData.url || nasaData.hdurl)) {
-          const imgUrl = nasaData.url || nasaData.hdurl;
-          const hdUrl = nasaData.hdurl || nasaData.url;
+        let imageUrl = nasaData.url;
+        let hdUrl = nasaData.hdurl || nasaData.url;
+
+        // Xử lý nếu NASA APOD hôm nay là Video (YouTube)
+        if (nasaData.media_type === 'video' && nasaData.url) {
+          const ytMatch = nasaData.url.match(/(?:embed\/|v=)([^&?]+)/);
+          if (ytMatch && ytMatch[1]) {
+            imageUrl = `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
+            hdUrl = imageUrl;
+          }
+        }
+
+        if (imageUrl) {
           photoFeed.push({
             source: 'NASA Astronomy',
             title: nasaData.title || 'Astronomy Picture of the Day',
-            imgUrl: imgUrl,
+            imgUrl: imageUrl,
             hdUrl: hdUrl,
             caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.'
           });
         } else {
-          throw new Error('APOD content is not a static image');
+          throw new Error('No valid image URL');
         }
       } catch (e) {
-        console.warn('Không thể lấy ảnh trực tiếp từ NASA APOD, chuyển sang ảnh chất lượng cao dự phòng:', e);
+        // Fallback ảnh không gian độ phân giải cao nếu NASA API bị giới hạn lượt gọi
         photoFeed.push({
           source: 'NASA Astronomy Space',
           title: 'Atmospheric Horizon & Orbital View',
@@ -536,7 +544,7 @@
         });
       }
 
-      // 2. Tạo 5 ảnh ngẫu nhiên riêng biệt từ các danh mục Unsplash
+      // 2. Tạo 5 ảnh ngẫu nhiên riêng biệt từ các danh mục Unsplash khác nhau
       const categories = [
         { key: 'geography', label: 'Physical Geography' },
         { key: 'aviation', label: 'Aeronautics & Technology' },
@@ -573,15 +581,15 @@
       widgetContainer.innerHTML = `
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <a href="${item.hdUrl}" target="_blank" title="Click to view full original high-resolution photo">
-            <img class="widget-img" src="${item.imgUrl}" alt="${escapeHtml(item.title)}" onError="this.onerror=null; this.src='https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80';" />
+          <a href="${escapeHtml(item.hdUrl)}" target="_blank" title="Click to view full original high-resolution photo">
+            <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onError="this.onerror=null;this.src='https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80';" />
           </a>
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
-          <a href="${item.hdUrl}" target="_blank" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569; text-decoration: none;">🔍 Open High-Res Image</a>
+          <a href="${escapeHtml(item.hdUrl)}" target="_blank" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569; text-decoration: none;">🔍 Open High-Res Image</a>
           <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
         </div>
