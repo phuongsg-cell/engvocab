@@ -199,7 +199,7 @@
     }
     .widget-img {
       width: 100%;
-      max-height: 350px;
+      max-height: 380px;
       object-fit: cover;
       border-radius: 8px;
       margin-bottom: 10px;
@@ -213,7 +213,7 @@
       position: absolute;
       top: 10px;
       left: 10px;
-      background: rgba(15, 23, 42, 0.75);
+      background: rgba(15, 23, 42, 0.85);
       color: white;
       font-size: 0.75rem;
       font-weight: 600;
@@ -229,6 +229,8 @@
       padding: 12px;
       border-radius: 8px;
       margin-top: 8px;
+      max-height: 150px;
+      overflow-y: auto;
     }
     .widget-title {
       font-weight: 700;
@@ -282,9 +284,9 @@
 
   <!-- DAILY INSPIRATION / PRESS PHOTO WIDGET -->
   <div class="card">
-    <h2>📰 Daily Photos & Knowledge (NASA & Editorial)</h2>
+    <h2>📰 Daily Photos & Knowledge (NASA & Press Media)</h2>
     <div id="daily-widget-content">
-      <p style="color: var(--subtext); text-align: center;">Loading high-res photos...</p>
+      <p style="color: var(--subtext); text-align: center;">Loading high-res photos & captions...</p>
     </div>
   </div>
 
@@ -361,7 +363,7 @@
     let currentPage = 1;
     const itemsPerPage = 20;
 
-    // Danh sách Photos (NASA + 5 Editorial Press Photos)
+    // Danh sách Photos (NASA + Wikimedia Press/Documentary Photos)
     let photoFeed = [];
     let currentPhotoIndex = 0;
 
@@ -476,7 +478,7 @@
       todayEl.innerText = countToday;
     }
 
-    // --- WIDGET MULTI-PHOTO (NASA + EDITORIAL PRESS PHOTOS) ---
+    // --- WIDGET MULTI-PHOTO (NASA + WIKIMEDIA PRESS & FEATURED PHOTOS) ---
     async function loadDailyWidget() {
       photoFeed = [];
       
@@ -497,29 +499,47 @@
         console.warn('NASA load failed:', e);
       }
 
-      // 2. Tải 5 Ảnh Thời Sự/Báo Chí Chất Lượng Cao (Open Press Feed via Unsplash Source API)
-      const pressTopics = [
-        { title: "World News & Global Events", topic: "news" },
-        { title: "Urban Life & Documentary Photography", topic: "documentary" },
-        { title: "Humanity & Culture In Focus", topic: "people" },
-        { title: "Architecture & Global Cities", topic: "architecture" },
-        { title: "Environmental & Nature Reportage", topic: "nature" }
-      ];
+      // 2. Tải 5 Ảnh Tư Liệu / Báo Chí từ Wikimedia Commons (Open API chuẩn không bị chặn CORS)
+      try {
+        const wikiApiUrl = 'https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category:Featured_pictures_on_Wikimedia_Commons&gcmlimit=8&prop=imageinfo&iiprop=url|extmetadata&format=json&origin=*';
+        const wikiRes = await fetch(wikiApiUrl);
+        const wikiData = await wikiRes.json();
 
-      pressTopics.forEach((item, idx) => {
-        const timestamp = Date.now() + idx;
-        const imgUrl = `https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=800&q=80`; // Static high quality press image fallback
-        const dynamicUrl = `https://source.unsplash.com/featured/800x500/?${item.topic}&sig=${timestamp}`;
-        const hdDynamicUrl = `https://source.unsplash.com/featured/1920x1080/?${item.topic}&sig=${timestamp}`;
+        if (wikiData.query && wikiData.query.pages) {
+          const pages = Object.values(wikiData.query.pages);
+          let count = 0;
 
-        photoFeed.push({
-          source: 'Press & Editorial Photography',
-          title: item.title,
-          imgUrl: dynamicUrl,
-          hdUrl: hdDynamicUrl,
-          caption: `A high-resolution editorial photograph capturing moment from modern ${item.topic} coverage. Click the button below to view full-size high-definition file.`
-        });
-      });
+          pages.forEach(page => {
+            if (count >= 5) return;
+            if (page.imageinfo && page.imageinfo[0]) {
+              const info = page.imageinfo[0];
+              const meta = info.extmetadata || {};
+
+              // Tách caption tiếng Anh
+              let description = meta.ObjectName ? meta.ObjectName.value : '';
+              if (meta.ImageDescription) {
+                description = meta.ImageDescription.value;
+              }
+              // Clean HTML tags
+              let cleanCaption = description.replace(/<[^>]*>?/gm, '').trim();
+              if (cleanCaption.length > 300) cleanCaption = cleanCaption.substring(0, 300) + '...';
+
+              const titleClean = page.title.replace('File:', '').replace(/\.[^/.]+$/, "");
+
+              photoFeed.push({
+                source: 'Wikimedia Press & Documentary',
+                title: titleClean,
+                imgUrl: info.url,
+                hdUrl: info.url, // Full resolution gốc
+                caption: cleanCaption || 'High-resolution press and documentary photograph featured on Wikimedia Commons.'
+              });
+              count++;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Wikimedia load failed:', e);
+      }
 
       currentPhotoIndex = 0;
       renderDailyWidget();
@@ -536,8 +556,8 @@
       widgetContainer.innerHTML = `
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <a href="${item.hdUrl}" target="_blank" title="Bấm để mở ảnh kích thước lớn">
-            <img class="widget-img" src="${item.imgUrl}" alt="${escapeHtml(item.title)}" onerror="this.src='https://picsum.photos/800/500?random=${currentPhotoIndex}'" />
+          <a href="${item.hdUrl}" target="_blank" title="Bấm để mở ảnh gốc Full HD/4K">
+            <img class="widget-img" src="${item.imgUrl}" alt="${escapeHtml(item.title)}" />
           </a>
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
