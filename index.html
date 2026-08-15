@@ -361,6 +361,35 @@
     let photoFeed = [];
     let currentPhotoIndex = 0;
 
+    // Kho ảnh Unsplash theo các chủ đề đa dạng (được chọn ngẫu nhiên mỗi ngày)
+    const UNSPLASH_POOLS = {
+      geography: [
+        { id: '1451187580459-43490279c0fa', title: 'Atmosphere & Earth Horizon', caption: 'Satellite view of planet Earth displaying upper atmospheric scattering and oceanic dynamics.' },
+        { id: '1464822759023-fed622ff2c3b', title: 'Alpine Peak Topography', caption: 'Glacial eroded alpine ridgelines exhibiting steep physical geography and snowpack accumulation.' },
+        { id: '1506744038136-46273834b3fb', title: 'Yosemite Valley Canyon', caption: 'Granite monoliths and glacial valley carving captured during optimal directional light.' },
+        { id: '1470071459604-3b5ec3a7fe05', title: 'Mist & Forest Canopy', caption: 'Dense atmospheric moisture interception across high-elevation evergreen forestry.' }
+      ],
+      aviation: [
+        { id: '1540959733332-eab4deabeeaf', title: 'Commercial Flight Wing', caption: 'Aerodynamic lift generated over supercritical wing profile at cruising altitude pressure.' },
+        { id: '1519074069444-1ba4eff56022', title: 'Airport Runway Approach', caption: 'Final approach lighting system guiding precision instrument landing procedures.' },
+        { id: '1436491865332-7a61a109cc05', title: 'Turbofan Engine Propulsion', caption: 'High-bypass turbofan engine nacelle engineered for thermodynamic efficiency.' }
+      ],
+      nature: [
+        { id: '1441974231531-c6227db76b6e', title: 'Temperate Forest Canopy', caption: 'Photosynthetic light penetration filtering through dense deciduous tree canopy layers.' },
+        { id: '1472214103451-9374bd1c798e', title: 'Coastal Horizon Dynamics', caption: 'Hydrological wave displacement along rocky intertidal shorelines during golden hour.' },
+        { id: '1501854140801-50d01698950b', title: 'Valleys & Cloud Layer', caption: 'Thermal inversion trapping low-level fog within mountainous valley basins.' }
+      ],
+      architecture: [
+        { id: '1486406146926-c627a92ad1ab', title: 'Glass Modern Skyscraper', caption: 'Curtain wall structural engineering reflecting urban skylines with minimal geometric steel frames.' },
+        { id: '1513694203232-719a280e022f', title: 'Interior Spatial Flow', caption: 'Architectural emphasis on natural illumination, structural load balance, and spatial harmony.' },
+        { id: '1479839672679-a46483c0e7c8', title: 'Gothic Vault Geometry', caption: 'Ribbed vault ceiling architecture distributing structural masonry weight efficiently.' }
+      ],
+      photography: [
+        { id: '1492691527719-9d1e07e534b4', title: 'High Dynamic Range Vista', caption: 'Multi-exposure bracketing capturing deep shadow details alongside highlight retention.' },
+        { id: '1516035069371-29a1b244cc32', title: 'Prime Lens Optical Flare', caption: 'Controlled wide-aperture optical depth of field emphasizing subject isolation.' }
+      ]
+    };
+
     // --- INITIALIZATION ---
     window.onload = () => {
       initGapi();
@@ -471,11 +500,11 @@
       todayEl.innerText = countToday;
     }
 
-    // --- WIDGET DYNAMIC PHOTO FEED (NASA REALTIME + 5 DYNAMIC UNSPLASH RANDOM PHOTOS) ---
+    // --- WIDGET DYNAMIC PHOTO FEED (NASA REALTIME + 5 UNSPLASH CATEGORIES) ---
     async function loadDailyWidget() {
       photoFeed = [];
-      
-      // 1. Tải NASA Picture of the Day (có fallback an toàn)
+
+      // 1. Tải NASA Picture of the Day
       try {
         const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
         const nasaData = await nasaRes.json();
@@ -488,63 +517,39 @@
             caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.'
           });
         } else {
-          throw new Error('NASA media is not a standard image');
+          throw new Error('Not image');
         }
       } catch (e) {
+        // Fallback NASA ảnh không gian cố định nếu API bận
         photoFeed.push({
-          source: 'NASA Astronomy (Archive)',
-          title: 'Earth Observation & Atmospheric Horizon',
+          source: 'NASA Astronomy Space',
+          title: 'Atmospheric Horizon & Orbital View',
           imgUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80',
           hdUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=3840&q=100',
-          caption: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence, cloud formations, and regional geography captured from low Earth orbit.'
+          caption: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.'
         });
       }
 
-      // 2. PHƯƠNG ÁN 1: Tạo 5 ảnh ngẫu nhiên từ Unsplash tự đổi mỗi ngày/mỗi lần load
-      const topics = [
-        {
-          tag: 'geography,mountains',
-          source: 'Physical Geography & Terrain',
-          title: 'Topographic Formations & Glacial Geology',
-          caption: 'High-altitude mountainous terrain demonstrating tectonic uplifting and historical glacial erosion patterns over geological timeframes.'
-        },
-        {
-          tag: 'aviation,aircraft',
-          source: 'Aeronautics & Engineering',
-          title: 'Aero-thermodynamics & Flight Technology',
-          caption: 'Commercial and experimental aeronautical propulsion maneuvering through high-altitude air density and aerodynamic pressure channels.'
-        },
-        {
-          tag: 'wildlife,marine',
-          source: 'Zoology & Ecology',
-          title: 'Biodiversity & Ecosystem Habitats',
-          caption: 'Ecological interaction and organism adaptation within natural terrestrial or deep pelagic biological environments.'
-        },
-        {
-          tag: 'architecture,building',
-          source: 'Architectural Design',
-          title: 'Structural Engineering & Geometry',
-          caption: 'Modern structural geometry emphasizing load-bearing distribution, aesthetic symmetry, and spatial spatial-flow design.'
-        },
-        {
-          tag: 'nature,landscape',
-          source: 'Environmental Science',
-          title: 'High Dynamic Range & Atmospheric Light',
-          caption: 'Natural lighting phenomena captured through precision optical exposure bracketing, displaying subtle tonal gradations across landscape vistas.'
-        }
+      // 2. Tạo 5 ảnh ngẫu nhiên riêng biệt từ các danh mục Unsplash khác nhau
+      const categories = [
+        { key: 'geography', label: 'Physical Geography' },
+        { key: 'aviation', label: 'Aeronautics & Technology' },
+        { key: 'nature', label: 'Environmental Science' },
+        { key: 'architecture', label: 'Architectural Design' },
+        { key: 'photography', label: 'Optical Photography' }
       ];
 
-      // Dùng timestamp ngẫu nhiên làm cache-buster để ép Unsplash trả về 5 ảnh mới hoàn toàn mỗi ngày/mỗi lần tải
-      const timestamp = Date.now();
-
-      topics.forEach((item, idx) => {
-        const randomSeed = `${timestamp}_${idx}`;
+      categories.forEach(cat => {
+        const pool = UNSPLASH_POOLS[cat.key];
+        // Chọn ngẫu nhiên 1 ảnh từ kho của danh mục đó
+        const selected = pool[Math.floor(Math.random() * pool.length)];
+        
         photoFeed.push({
-          source: item.source,
-          title: item.title,
-          imgUrl: `https://source.unsplash.com/1000x800/?${item.tag}&sig=${randomSeed}`,
-          hdUrl: `https://source.unsplash.com/1920x1080/?${item.tag}&sig=${randomSeed}`,
-          caption: item.caption
+          source: cat.label,
+          title: selected.title,
+          imgUrl: `https://images.unsplash.com/photo-${selected.id}?auto=format&fit=crop&w=1000&q=80`,
+          hdUrl: `https://images.unsplash.com/photo-${selected.id}?auto=format&fit=crop&w=3840&q=100`,
+          caption: selected.caption
         });
       });
 
