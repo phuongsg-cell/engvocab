@@ -191,12 +191,35 @@
     }
 
     /* Daily Widget Style */
+    .widget-img-container {
+      position: relative;
+      display: block;
+      overflow: hidden;
+      border-radius: 8px;
+    }
     .widget-img {
       width: 100%;
-      max-height: 320px;
+      max-height: 350px;
       object-fit: cover;
       border-radius: 8px;
       margin-bottom: 10px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .widget-img:hover {
+      transform: scale(1.01);
+    }
+    .widget-source-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(15, 23, 42, 0.75);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      backdrop-filter: blur(4px);
     }
     .widget-caption {
       font-size: 0.9rem;
@@ -205,12 +228,19 @@
       background: #f1f5f9;
       padding: 12px;
       border-radius: 8px;
+      margin-top: 8px;
     }
     .widget-title {
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 1.05rem;
       margin-bottom: 4px;
       color: var(--primary);
+    }
+    .widget-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
     }
 
     /* Pagination Styling */
@@ -250,11 +280,11 @@
     </div>
   </div>
 
-  <!-- DAILY INSPIRATION / DISCOVERY WIDGET -->
+  <!-- DAILY INSPIRATION / PRESS PHOTO WIDGET -->
   <div class="card">
-    <h2>🌌 Daily Knowledge & Photo (NASA)</h2>
+    <h2>📰 Daily Photos & Knowledge (NASA & Reuters)</h2>
     <div id="daily-widget-content">
-      <p style="color: var(--subtext); text-align: center;">Loading today's photo...</p>
+      <p style="color: var(--subtext); text-align: center;">Loading daily news photos...</p>
     </div>
   </div>
 
@@ -330,6 +360,10 @@
     // Phân trang
     let currentPage = 1;
     const itemsPerPage = 20;
+
+    // Danh sách Photos (NASA + 5 Reuters Press Photos)
+    let photoFeed = [];
+    let currentPhotoIndex = 0;
 
     // --- INITIALIZATION ---
     window.onload = () => {
@@ -432,7 +466,6 @@
         if (item.addedAt) {
           return item.addedAt === todayStr;
         }
-        // Fallback kiểm tra qua Timestamp của ID nếu thiếu trường addedAt
         if (typeof item.id === 'number' && item.id > 1000000000000) {
           const itemDate = new Date(item.id).toISOString().split('T')[0];
           return itemDate === todayStr;
@@ -443,28 +476,98 @@
       todayEl.innerText = countToday;
     }
 
-    // --- WIDGET NASA ASTRONOMY PICTURE OF THE DAY ---
+    // --- WIDGET MULTI-PHOTO (NASA + REUTERS PHOTO PRESS) ---
     async function loadDailyWidget() {
-      const widgetContainer = document.getElementById('daily-widget-content');
+      photoFeed = [];
+      
+      // 1. Tải NASA Picture
       try {
-        const response = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-        const data = await response.json();
-
-        if (data.media_type === 'image') {
-          widgetContainer.innerHTML = `
-            <img class="widget-img" src="${data.url}" alt="${escapeHtml(data.title)}" />
-            <div class="widget-title">${escapeHtml(data.title)}</div>
-            <div class="widget-caption">${escapeHtml(data.explanation)}</div>
-          `;
-        } else {
-          widgetContainer.innerHTML = `
-            <div class="widget-title">${escapeHtml(data.title)}</div>
-            <div class="widget-caption">${escapeHtml(data.explanation)}</div>
-          `;
+        const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
+        const nasaData = await nasaRes.json();
+        if (nasaData.media_type === 'image') {
+          photoFeed.push({
+            source: 'NASA Astronomy',
+            title: nasaData.title,
+            imgUrl: nasaData.url,
+            hdUrl: nasaData.hdurl || nasaData.url,
+            caption: nasaData.explanation
+          });
         }
-      } catch (err) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Could not load daily knowledge photo.</p>`;
+      } catch (e) {
+        console.warn('NASA load failed:', e);
       }
+
+      // 2. Tải 5 Ảnh Thời Sự từ Reuters Press Photos
+      try {
+        const reutersRssUrl = encodeURIComponent('https://www.reutersagency.com/feed/?best-topics=pictures&post_type=best');
+        const rssRes = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${reutersRssUrl}`);
+        const rssData = await rssRes.json();
+
+        if (rssData.status === 'ok' && rssData.items) {
+          const reutersItems = rssData.items.slice(0, 5);
+          reutersItems.forEach(item => {
+            // Tách URL ảnh từ nội dung HTML của Reuters RSS
+            let imgMatch = item.content.match(/src=["'](.*?)["']/);
+            let imgUrl = imgMatch ? imgMatch[1] : (item.thumbnail || '');
+            
+            // Xóa thẻ HTML dư thừa trong caption
+            let cleanCaption = item.description.replace(/<[^>]*>?/gm, '').trim();
+
+            if (imgUrl) {
+              photoFeed.push({
+                source: 'Reuters Press Photo',
+                title: item.title,
+                imgUrl: imgUrl,
+                hdUrl: imgUrl, // Reuters cung cấp ảnh chất lượng cao
+                caption: cleanCaption || item.title
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Reuters RSS load failed:', e);
+      }
+
+      currentPhotoIndex = 0;
+      renderDailyWidget();
+    }
+
+    function renderDailyWidget() {
+      const widgetContainer = document.getElementById('daily-widget-content');
+      if (!photoFeed || photoFeed.length === 0) {
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Could not load daily press photos.</p>`;
+        return;
+      }
+
+      const item = photoFeed[currentPhotoIndex];
+      widgetContainer.innerHTML = `
+        <div class="widget-img-container">
+          <span class="widget-source-badge">${escapeHtml(item.source)}</span>
+          <a href="${item.hdUrl}" target="_blank" title="Bấm để xem ảnh phóng to gốc">
+            <img class="widget-img" src="${item.imgUrl}" alt="${escapeHtml(item.title)}" />
+          </a>
+        </div>
+        <div class="widget-title">${escapeHtml(item.title)}</div>
+        <div class="widget-caption">${escapeHtml(item.caption)}</div>
+        <div class="widget-controls">
+          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
+          <a href="${item.hdUrl}" target="_blank" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569; text-decoration: none;">🔍 Open High-Res Image</a>
+          <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
+          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
+        </div>
+      `;
+    }
+
+    function prevWidgetPhoto() {
+      if (photoFeed.length === 0) return;
+      currentPhotoIndex = (currentPhotoIndex - 1 + photoFeed.length) % photoFeed.length;
+      renderDailyWidget();
+    }
+
+    function nextWidgetPhoto() {
+      if (photoFeed.length === 0) return;
+      currentPhotoIndex = (currentPhotoIndex + 1) % photoFeed.length;
+      renderDailyWidget();
     }
 
     // --- LOGIC CHỌN 20 TỪ CHO FLASHCARD ---
