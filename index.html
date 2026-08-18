@@ -15,7 +15,6 @@
       --primary-hover: #1d4ed8;
       --success: #16a34a;
       --danger: #dc2626;
-      --danger-hover: #b91c1c;
       --bg: #f8fafc;
       --card: #ffffff;
       --text: #1e293b;
@@ -234,7 +233,7 @@
       padding: 12px;
       border-radius: 8px;
       margin-top: 8px;
-      max-height: 150px;
+      max-height: 120px;
       overflow-y: auto;
     }
     .widget-title {
@@ -266,85 +265,105 @@
       text-align: center;
     }
 
-    /* Modal Viewer Pop-up & Metadata EXIF */
+    /* Modal Viewer Pop-up Phóng To Ảnh */
     .modal-overlay {
       position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(15, 23, 42, 0.92);
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.95);
       backdrop-filter: blur(8px);
       z-index: 9999;
       display: none;
       justify-content: center;
       align-items: center;
       padding: 20px;
-      overflow-y: auto;
     }
     .modal-overlay.active { display: flex; }
     
     .modal-content {
-      background: #ffffff;
+      background: #0f172a;
+      color: #f8fafc;
       width: 100%;
-      max-width: 650px;
+      max-width: 900px;
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
       position: relative;
-      max-height: 90vh;
+      max-height: 95vh;
       display: flex;
       flex-direction: column;
+      border: 1px solid #334155;
     }
     .modal-close-btn {
       position: absolute;
       top: 12px; right: 12px;
       background: rgba(0,0,0,0.6);
       color: white;
-      border: none;
-      width: 32px; height: 32px;
+      border: 1px solid rgba(255,255,255,0.2);
+      width: 36px; height: 36px;
       border-radius: 50%;
       cursor: pointer;
       font-size: 1.2rem;
       line-height: 1;
-      z-index: 20;
+      z-index: 30;
     }
     .modal-img-container {
       background: #000;
       display: flex;
       justify-content: center;
       align-items: center;
-      max-height: 50vh;
+      flex: 1;
+      min-height: 50vh;
+      max-height: 75vh;
+      position: relative;
     }
     .modal-img-container img {
       max-width: 100%;
-      max-height: 50vh;
+      max-height: 75vh;
       object-fit: contain;
     }
+    
+    .modal-toolbar {
+      padding: 12px 16px;
+      background: #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #334155;
+    }
+
     .modal-details {
-      padding: 20px;
+      padding: 16px 20px;
+      background: #0f172a;
       overflow-y: auto;
       font-size: 0.9rem;
+      border-top: 1px solid #334155;
+      display: none; /* Mặc định ẩn, bật khi bấm nút */
+    }
+    .modal-details.show {
+      display: block;
     }
     .modal-details h3 {
-      font-size: 1.2rem;
-      color: var(--primary);
+      font-size: 1.1rem;
+      color: #38bdf8;
       margin-bottom: 6px;
     }
     .exif-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      margin-top: 12px;
-      background: #f8fafc;
+      margin-top: 10px;
+      background: #1e293b;
       padding: 12px;
       border-radius: 8px;
-      border: 1px solid var(--border);
+      border: 1px solid #334155;
     }
     .exif-item {
       font-size: 0.85rem;
-      color: #334155;
+      color: #94a3b8;
     }
     .exif-item span {
       font-weight: 600;
-      color: var(--text);
+      color: #f1f5f9;
     }
 
     /* Pagination Styling */
@@ -445,17 +464,25 @@
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
-  <!-- POPUP MODAL EXIF VIEWER -->
+  <!-- POPUP MODAL PHÓNG TO ẢNH & TÙY CHỌN BẬT/TẮT METADATA -->
   <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
+      
       <div class="modal-img-container">
         <img id="modal-img" src="" alt="Full view" />
       </div>
-      <div class="modal-details">
+
+      <div class="modal-toolbar">
+        <span id="modal-title-bar" style="font-weight: 600; font-size: 0.95rem; color: #e2e8f0;">Photo View</span>
+        <button class="btn" style="padding: 6px 12px; font-size: 0.82rem; background-color: #334155;" onclick="toggleMetadata()">
+          ℹ️ <span id="meta-toggle-btn-text">Hiện Metadata / EXIF</span>
+        </button>
+      </div>
+
+      <div class="modal-details" id="modal-details-panel">
         <h3 id="modal-title">Photo Title</h3>
-        <p id="modal-caption" style="color: #475569; margin-bottom: 10px;"></p>
-        
+        <p id="modal-caption" style="color: #cbd5e1; margin-bottom: 10px;"></p>
         <div id="modal-exif-container" class="exif-grid"></div>
       </div>
     </div>
@@ -464,7 +491,6 @@
   <script>
     // --- GOOGLE DRIVE OAUTH CONFIG ---
     const CLIENT_ID = '77360573208-rvps7dsakd2qbg6rvnoaa5927gijhaeb.apps.googleusercontent.com';
-    // Đã thêm scope read để truy cập folder vocab
     const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = 'eng_vocab_data.json';
 
@@ -601,7 +627,6 @@
       todayEl.innerText = countToday;
     }
 
-    // --- HELPER BẢO VỆ CHỐNG CHẶN HOTLINK CHO ẢNH NASA ---
     function getSafeNasaImageUrl(rawUrl) {
       if (!rawUrl) return '';
       if (rawUrl.includes('apod.nasa.gov')) {
@@ -610,53 +635,52 @@
       return rawUrl;
     }
 
-    // --- TRÍCH XUẤT 5 ẢNH NGẪU NHIÊN TỪ THƯ MỤC 'vocab' TRÊN DRIVE ---
+    // --- FIX LỖI ẢNH DRIVE ĐEN THUI: DÙNG URL THUMBNAIL/LH3 CHUẨN ---
     async function fetchDriveVocabPhotos() {
       if (!accessToken) return [];
       try {
-        // 1. Tìm folder tên 'vocab'
         const folderRes = await gapi.client.drive.files.list({
           q: "mimeType = 'application/vnd.google-apps.folder' and name = 'vocab' and trashed = false",
           fields: 'files(id, name)'
         });
 
         const folders = folderRes.result.files;
-        if (!folders || folders.length === 0) {
-          console.warn("Chưa tìm thấy folder 'vocab' trên Google Drive.");
-          return [];
-        }
+        if (!folders || folders.length === 0) return [];
 
         const folderId = folders[0].id;
 
-        // 2. Lấy danh sách tệp ảnh trong folder vocab cùng các trường metadata & EXIF
         const filesRes = await gapi.client.drive.files.list({
           q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
-          fields: 'files(id, name, description, createdTime, imageMediaMetadata, properties, webContentLink)',
+          fields: 'files(id, name, description, createdTime, thumbnailLink, imageMediaMetadata, properties)',
           pageSize: 50
         });
 
         const files = filesRes.result.files || [];
         if (files.length === 0) return [];
 
-        // 3. Shuffle ngẫu nhiên và lấy tối đa 5 ảnh
         const shuffled = files.sort(() => 0.5 - Math.random()).slice(0, 5);
 
         return shuffled.map(file => {
           const meta = file.imageMediaMetadata || {};
           const props = file.properties || {};
 
-          // Tạo URL hiển thị bằng Access Token
-          const imgUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&access_token=${accessToken}`;
+          // FIX: Tạo URL hiển thị bằng lh3 link chuẩn Google Drive (tránh đen ảnh)
+          let displayUrl = `https://lh3.googleusercontent.com/d/${file.id}`;
+          let hdUrl = `https://lh3.googleusercontent.com/d/${file.id}=w2000`;
 
-          // Format khẩu độ và tốc độ màn trập
+          if (file.thumbnailLink) {
+            displayUrl = file.thumbnailLink.replace(/=s\d+/, '=s1000');
+            hdUrl = file.thumbnailLink.replace(/=s\d+/, '=s2400');
+          }
+
           let aperture = meta.aperture ? `f/${meta.aperture.toFixed(1)}` : '';
           let exposureTime = meta.exposureTime ? (meta.exposureTime < 1 ? `1/${Math.round(1/meta.exposureTime)}s` : `${meta.exposureTime}s`) : '';
 
           return {
             source: 'Drive Vocab Gallery',
             title: props.title || file.name.replace(/\.[^/.]+$/, ""),
-            imgUrl: imgUrl,
-            hdUrl: imgUrl,
+            imgUrl: displayUrl,
+            hdUrl: hdUrl,
             caption: file.description || props.caption || 'Photo retrieved from Google Drive vocab folder.',
             author: props.author || props.artist || '',
             takenDate: meta.date ? meta.date.split(' ')[0].replace(/:/g, '-') : (file.createdTime ? file.createdTime.split('T')[0] : ''),
@@ -670,19 +694,17 @@
         });
 
       } catch (err) {
-        console.error("Lỗi trích xuất ảnh từ folder vocab trên Drive:", err);
+        console.error("Lỗi lấy ảnh từ Drive:", err);
         return [];
       }
     }
 
-    // --- WIDGET DYNAMIC PHOTO FEED (NASA + 5 ẢNH TỪ DRIVE VOCAB) ---
     async function loadDailyWidget() {
       photoFeed = [];
 
-      // 1. Tải NASA Picture of the Day
       try {
         const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-        if (!nasaRes.ok) throw new Error('NASA API Rate limit or Network Error');
+        if (!nasaRes.ok) throw new Error('NASA API Rate limit');
         
         const nasaData = await nasaRes.json();
         let rawUrl = nasaData.url || nasaData.hdurl;
@@ -723,7 +745,6 @@
         });
       }
 
-      // 2. Lấy 5 ảnh từ Google Drive folder vocab
       const drivePhotos = await fetchDriveVocabPhotos();
       if (drivePhotos.length > 0) {
         photoFeed = photoFeed.concat(drivePhotos);
@@ -745,13 +766,13 @@
       widgetContainer.innerHTML = `
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click to view photo & metadata EXIF" />
+          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click to zoom in" />
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
-          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 View Photo & EXIF</button>
+          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom Photo</button>
           <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
         </div>
@@ -770,12 +791,13 @@
       renderDailyWidget();
     }
 
-    // --- POPUP MODAL EXIF VIEWER FUNCTIONS ---
+    // --- POPUP VIEWER PHÓNG TO ẢNH & TÙY CHỌN BẬT METADATA ---
     function openPhotoModal(index) {
       const item = photoFeed[index];
       if (!item) return;
 
       document.getElementById('modal-img').src = item.hdUrl || item.imgUrl;
+      document.getElementById('modal-title-bar').innerText = item.title || 'Photo View';
       document.getElementById('modal-title').innerText = item.title || 'Untitled Photo';
       document.getElementById('modal-caption').innerText = item.caption || '';
 
@@ -783,7 +805,6 @@
       exifContainer.innerHTML = '';
 
       let hasExifData = false;
-
       const addExifItem = (label, val) => {
         if (val) {
           hasExifData = true;
@@ -804,10 +825,28 @@
 
       exifContainer.style.display = hasExifData ? 'grid' : 'none';
 
+      // Ẩn bảng Metadata mặc định khi mới mở để tập trung xem ảnh
+      const detailsPanel = document.getElementById('modal-details-panel');
+      detailsPanel.classList.remove('show');
+      document.getElementById('meta-toggle-btn-text').innerText = 'Hiện Metadata / EXIF';
+
       document.getElementById('photo-modal').classList.add('active');
     }
 
-    function closePhotoModal(event) {
+    function toggleMetadata() {
+      const detailsPanel = document.getElementById('modal-details-panel');
+      const btnText = document.getElementById('meta-toggle-btn-text');
+      
+      if (detailsPanel.classList.contains('show')) {
+        detailsPanel.classList.remove('show');
+        btnText.innerText = 'Hiện Metadata / EXIF';
+      } else {
+        detailsPanel.classList.add('show');
+        btnText.innerText = 'Ẩn Metadata / EXIF';
+      }
+    }
+
+    function closePhotoModal() {
       document.getElementById('photo-modal').classList.remove('active');
     }
 
