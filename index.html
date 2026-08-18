@@ -392,6 +392,9 @@
       font-size: 0.85rem;
       color: #94a3b8;
     }
+    .exif-item.full-width {
+      grid-column: span 2;
+    }
     .exif-item span {
       font-weight: 600;
       color: #f1f5f9;
@@ -763,9 +766,11 @@
             hdUrl: hdUrl,
             caption: file.description || props.caption || 'Photo retrieved from Google Drive vocab folder.',
             author: props.author || props.artist || '',
+            comments: props.comments || file.description || '',
             takenDate: meta.date ? meta.date.split(' ')[0].replace(/:/g, '-') : (file.createdTime ? file.createdTime.split('T')[0] : ''),
             exif: {
               camera: (meta.cameraMake || meta.cameraModel) ? `${meta.cameraMake || ''} ${meta.cameraModel || ''}`.trim() : '',
+              lens: meta.lens || props.lens || '',
               aperture: aperture,
               shutterSpeed: exposureTime,
               iso: meta.isoSpeed ? `ISO ${meta.isoSpeed}` : ''
@@ -831,6 +836,7 @@
               hdUrl: hdUrl || safeImgUrl,
               caption: nasaData.explanation || 'Ảnh thiên văn học trong ngày từ NASA Astronomy Picture of the Day.',
               author: nasaData.copyright ? `© ${nasaData.copyright.trim()}` : 'NASA / APOD',
+              comments: '',
               takenDate: nasaData.date || new Date().toISOString().split('T')[0],
               exif: {}
             });
@@ -909,11 +915,11 @@
       exifContainer.innerHTML = '';
 
       let hasExifData = false;
-      const addExifItem = (label, val) => {
+      const addExifItem = (label, val, fullWidth = false) => {
         if (val) {
           hasExifData = true;
           exifContainer.innerHTML += `
-            <div class="exif-item">${label}: <span>${escapeHtml(val)}</span></div>
+            <div class="exif-item ${fullWidth ? 'full-width' : ''}">${label}: <span>${escapeHtml(val)}</span></div>
           `;
         }
       };
@@ -922,10 +928,12 @@
       addExifItem('Taken Date', item.takenDate);
       if (item.exif) {
         addExifItem('Camera', item.exif.camera);
+        addExifItem('Lens', item.exif.lens);
         addExifItem('Aperture', item.exif.aperture);
         addExifItem('Shutter Speed', item.exif.shutterSpeed);
         addExifItem('ISO', item.exif.iso);
       }
+      addExifItem('Comments', item.comments, true);
 
       exifContainer.style.display = hasExifData ? 'grid' : 'none';
       renderDailyWidget();
