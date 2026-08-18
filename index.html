@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vocabulary Flashcard</title>
   
-  <!-- Google API SDKs -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
   
@@ -379,6 +378,15 @@
       color: #38bdf8;
       margin-bottom: 6px;
     }
+    .modal-subject-box {
+      color: #cbd5e1;
+      margin-bottom: 10px;
+      line-height: 1.5;
+      background: #1e293b;
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+    }
     .exif-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -417,13 +425,11 @@
     <p>Practice English Vocabulary • 10 Minutes Everyday</p>
   </div>
 
-  <!-- DRIVE STATUS BAR -->
   <div class="status-bar">
     <div id="status" class="status-indicator offline">🔴 Not Connected</div>
     <button id="auth-btn" class="btn" onclick="handleAuthClick()">Sign-in</button>
   </div>
 
-  <!-- STATS BAR -->
   <div class="stats-container">
     <div class="stat-card">
       <div class="stat-value" id="stat-total">0</div>
@@ -435,7 +441,6 @@
     </div>
   </div>
 
-  <!-- DAILY INSPIRATION / PRESS PHOTO WIDGET -->
   <div class="card" id="gallery-card">
     <div id="gallery-lock" class="gallery-locked-overlay">
       <span style="font-size: 2rem; margin-bottom: 8px;">🔒</span>
@@ -444,13 +449,12 @@
       <button class="btn" onclick="handleAuthClick()">Sign-in with Google</button>
     </div>
 
-    <h2>📰 Daily Knowledge & Photography Gallery</h2>
+    <h2>📰 Daily Photos</h2>
     <div id="daily-widget-content">
       <p style="color: var(--subtext); text-align: center;">Loading photos & metadata...</p>
     </div>
   </div>
 
-  <!-- SECTION 1: FLASHCARD -->
   <div class="card">
     <h2>🧠 Flashcard</h2>
     <div id="flashcard-area">
@@ -469,7 +473,6 @@
     </div>
   </div>
 
-  <!-- SECTION 2: THÊM TỪ VỰNG MỚI -->
   <div class="card">
     <h2>➕ Add a new vocabulary</h2>
     <div class="input-group">
@@ -486,7 +489,6 @@
     </button>
   </div>
 
-  <!-- SECTION 3: DANH SÁCH TỪ VỰNG -->
   <div class="card">
     <h2>📋 Vocabulary List</h2>
     <div class="input-group" style="margin-bottom: 16px;">
@@ -496,13 +498,11 @@
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
-  <!-- POPUP MODAL PHÓNG TO ẢNH VÀ NÚT ĐIỀU HƯỚNG TRUY CẬP TRỰC TIẾP -->
   <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
       
       <div class="modal-img-container">
-        <!-- Nút điều hướng ảnh Trước/Sau nằm trên ảnh phóng to -->
         <button class="modal-nav-btn prev" onclick="navigateModalPhoto(-1)" title="Ảnh trước">⬅️</button>
         <img id="modal-img" src="" alt="Full view" />
         <button class="modal-nav-btn next" onclick="navigateModalPhoto(1)" title="Ảnh kế tiếp">➡️</button>
@@ -518,7 +518,9 @@
 
       <div class="modal-details" id="modal-details-panel">
         <h3 id="modal-title">Photo Title</h3>
-        <p id="modal-caption" style="color: #cbd5e1; margin-bottom: 10px;"></p>
+        <div class="modal-subject-box">
+          <strong style="color: #38bdf8;">Subject:</strong> <span id="modal-subject"></span>
+        </div>
         <div id="modal-exif-container" class="exif-grid"></div>
       </div>
     </div>
@@ -748,7 +750,7 @@
             title: props.title || file.name.replace(/\.[^/.]+$/, ""),
             imgUrl: displayUrl,
             hdUrl: hdUrl,
-            caption: file.description || props.caption || 'Photo retrieved from Google Drive vocab folder.',
+            subject: file.description || props.caption || props.subject || 'Photo retrieved from Google Drive vocab folder.',
             author: props.author || props.artist || '',
             takenDate: meta.date ? meta.date.split(' ')[0].replace(/:/g, '-') : (file.createdTime ? file.createdTime.split('T')[0] : ''),
             exif: {
@@ -770,6 +772,7 @@
       photoFeed = [];
 
       try {
+        // LẤY ẢNH NGUỒN NASA ASTRONOMY PICTURE OF THE DAY (APOD) TỰ ĐỘNG THAY ĐỔI THEO NGÀY
         const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
         if (!nasaRes.ok) throw new Error('NASA API Rate limit');
         
@@ -789,23 +792,24 @@
 
         if (safeImgUrl) {
           photoFeed.push({
-            source: 'NASA Astronomy',
+            source: 'NASA Picture of the Day',
             title: nasaData.title || 'Astronomy Picture of the Day',
             imgUrl: safeImgUrl,
             hdUrl: hdUrl || safeImgUrl,
-            caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.',
+            subject: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.',
             author: nasaData.copyright || 'NASA / APOD',
             takenDate: nasaData.date || '',
             exif: {}
           });
         }
       } catch (e) {
+        console.error("Lỗi tải NASA APOD:", e);
         photoFeed.push({
-          source: 'NASA Astronomy Space',
+          source: 'NASA Picture of the Day',
           title: 'Atmospheric Horizon & Orbital View',
           imgUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80',
           hdUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=3840&q=100',
-          caption: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.',
+          subject: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.',
           author: 'NASA',
           takenDate: '',
           exif: {}
@@ -822,394 +826,4 @@
     }
 
     function renderDailyWidget() {
-      const widgetContainer = document.getElementById('daily-widget-content');
-      if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">No photos found in Drive 'vocab' folder.</p>`;
-        return;
-      }
-
-      const item = photoFeed[currentPhotoIndex];
-
-      widgetContainer.innerHTML = `
-        <div class="widget-img-container">
-          <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click to zoom in" />
-        </div>
-        <div class="widget-title">${escapeHtml(item.title)}</div>
-        <div class="widget-caption">${escapeHtml(item.caption)}</div>
-        <div class="widget-controls">
-          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
-          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom Photo</button>
-          <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
-          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
-        </div>
-      `;
-    }
-
-    function prevWidgetPhoto() {
-      if (photoFeed.length === 0) return;
-      currentPhotoIndex = (currentPhotoIndex - 1 + photoFeed.length) % photoFeed.length;
-      renderDailyWidget();
-    }
-
-    function nextWidgetPhoto() {
-      if (photoFeed.length === 0) return;
-      currentPhotoIndex = (currentPhotoIndex + 1) % photoFeed.length;
-      renderDailyWidget();
-    }
-
-    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN & NÚT ĐIỀU HƯỚNG ---
-    function openPhotoModal(index) {
-      if (!photoFeed || photoFeed.length === 0) return;
-      currentPhotoIndex = index;
-      updateModalContent();
-      document.getElementById('photo-modal').classList.add('active');
-    }
-
-    function updateModalContent() {
-      const item = photoFeed[currentPhotoIndex];
-      if (!item) return;
-
-      document.getElementById('modal-img').src = item.hdUrl || item.imgUrl;
-      document.getElementById('modal-title-bar').innerText = item.title || 'Photo View';
-      document.getElementById('modal-photo-counter').innerText = `${currentPhotoIndex + 1} / ${photoFeed.length}`;
-      document.getElementById('modal-title').innerText = item.title || 'Untitled Photo';
-      document.getElementById('modal-caption').innerText = item.caption || '';
-
-      const exifContainer = document.getElementById('modal-exif-container');
-      exifContainer.innerHTML = '';
-
-      let hasExifData = false;
-      const addExifItem = (label, val) => {
-        if (val) {
-          hasExifData = true;
-          exifContainer.innerHTML += `
-            <div class="exif-item">${label}: <span>${escapeHtml(val)}</span></div>
-          `;
-        }
-      };
-
-      addExifItem('Author / Artist', item.author);
-      addExifItem('Taken Date', item.takenDate);
-      if (item.exif) {
-        addExifItem('Camera', item.exif.camera);
-        addExifItem('Aperture', item.exif.aperture);
-        addExifItem('Shutter Speed', item.exif.shutterSpeed);
-        addExifItem('ISO', item.exif.iso);
-      }
-
-      exifContainer.style.display = hasExifData ? 'grid' : 'none';
-      renderDailyWidget(); // Đồng bộ trạng thái ảnh đang chọn ở giao diện chính
-    }
-
-    function navigateModalPhoto(direction) {
-      if (!photoFeed || photoFeed.length === 0) return;
-      currentPhotoIndex = (currentPhotoIndex + direction + photoFeed.length) % photoFeed.length;
-      updateModalContent();
-    }
-
-    function toggleMetadata() {
-      const detailsPanel = document.getElementById('modal-details-panel');
-      const btnText = document.getElementById('meta-toggle-btn-text');
-      
-      if (detailsPanel.classList.contains('show')) {
-        detailsPanel.classList.remove('show');
-        btnText.innerText = 'Hiện Metadata / EXIF';
-      } else {
-        detailsPanel.classList.add('show');
-        btnText.innerText = 'Ẩn Metadata / EXIF';
-      }
-    }
-
-    function closePhotoModal() {
-      document.getElementById('photo-modal').classList.remove('active');
-    }
-
-    function prepareFlashcardDeck() {
-      if (!vocabData || vocabData.length === 0) {
-        flashcardDeck = [];
-        return;
-      }
-
-      const newest10 = vocabData.slice(0, 10);
-      const remainingPool = vocabData.slice(10);
-      const shuffledRemaining = [...remainingPool].sort(() => 0.5 - Math.random());
-      const random10 = shuffledRemaining.slice(0, 10);
-
-      flashcardDeck = [...newest10, ...random10];
-    }
-
-    // --- DRIVE SYNC LOGIC ---
-    async function syncFromDrive() {
-      try {
-        const res = await gapi.client.drive.files.list({
-          q: `name='${FILE_NAME}' and trashed=false`,
-          fields: 'files(id, name)',
-        });
-
-        const files = res.result.files;
-        if (files && files.length > 0) {
-          driveFileId = files[0].id;
-          const fileRes = await gapi.client.drive.files.get({
-            fileId: driveFileId,
-            alt: 'media',
-          });
-          const fetchedData = Array.isArray(fileRes.result) ? fileRes.result : (fileRes.body ? JSON.parse(fileRes.body) : []);
-          if (fetchedData.length >= 0) vocabData = fetchedData;
-        } else {
-          driveFileId = await createNewDriveFile(vocabData);
-        }
-        currentCardIndex = 0;
-        currentPage = 1;
-        prepareFlashcardDeck();
-        renderFlashcard();
-        renderVocabList();
-        updateStats();
-      } catch (err) {
-        console.error('Lỗi tải dữ liệu:', err);
-        if (err.status === 401) clearSession();
-      }
-    }
-
-    async function createNewDriveFile(data) {
-      const metadata = {
-        name: FILE_NAME,
-        mimeType: 'application/json',
-      };
-      const multipartRequestBody =
-        '--boundary_123\r\n' +
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-        JSON.stringify(metadata) + '\r\n' +
-        '--boundary_123\r\n' +
-        'Content-Type: application/json\r\n\r\n' +
-        JSON.stringify(data) + '\r\n' +
-        '--boundary_123--';
-
-      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + accessToken,
-          'Content-Type': 'multipart/related; boundary=boundary_123',
-        },
-        body: multipartRequestBody,
-      });
-      const resData = await response.json();
-      return resData.id;
-    }
-
-    async function updateDriveFile(data) {
-      if (!driveFileId) return;
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-    }
-
-    // --- UI ACTIONS & RENDERERS ---
-    function renderFlashcard() {
-      const card = document.getElementById('flashcard');
-      card.classList.remove('flipped');
-
-      if (flashcardDeck.length === 0) {
-        document.getElementById('fc-word').innerText = 'Chưa có từ vựng';
-        document.getElementById('fc-phonetic').innerText = '';
-        document.getElementById('fc-meaning').innerText = 'Hãy thêm từ vựng mới bên dưới';
-        document.getElementById('fc-counter').innerText = '0 / 0';
-        return;
-      }
-
-      const item = flashcardDeck[currentCardIndex];
-      document.getElementById('fc-word').innerText = item.word;
-      document.getElementById('fc-phonetic').innerText = item.phonetic || '';
-      document.getElementById('fc-meaning').innerText = item.meaning;
-      document.getElementById('fc-counter').innerText = `${currentCardIndex + 1} / ${flashcardDeck.length}`;
-    }
-
-    function flipCard() {
-      if (flashcardDeck.length === 0) return;
-      document.getElementById('flashcard').classList.toggle('flipped');
-    }
-
-    function nextCard() {
-      if (flashcardDeck.length === 0) return;
-      currentCardIndex = (currentCardIndex + 1) % flashcardDeck.length;
-      renderFlashcard();
-    }
-
-    function prevCard() {
-      if (flashcardDeck.length === 0) return;
-      currentCardIndex = (currentCardIndex - 1 + flashcardDeck.length) % flashcardDeck.length;
-      renderFlashcard();
-    }
-
-    function speakText(text) {
-      if (!('speechSynthesis' in window)) {
-        alert('Trình duyệt của bạn không hỗ trợ đọc âm thanh (Speech Synthesis).');
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
-
-    function speakCurrentCard() {
-      if (flashcardDeck.length === 0) return;
-      const word = flashcardDeck[currentCardIndex].word;
-      speakText(word);
-    }
-
-    function getFilteredVocabList() {
-      const query = document.getElementById('search-input').value.toLowerCase().trim();
-      if (!query) return vocabData;
-      return vocabData.filter(item => 
-        item.word.toLowerCase().includes(query) || 
-        item.meaning.toLowerCase().includes(query)
-      );
-    }
-
-    function onSearchInput() {
-      currentPage = 1;
-      renderVocabList();
-    }
-
-    function renderVocabList() {
-      const listEl = document.getElementById('vocab-list');
-      const paginationEl = document.getElementById('pagination-controls');
-
-      const filteredList = getFilteredVocabList();
-
-      if (filteredList.length === 0) {
-        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px 0;">Không tìm thấy từ vựng nào.</p>';
-        paginationEl.innerHTML = '';
-        return;
-      }
-
-      const totalPages = Math.ceil(filteredList.length / itemsPerPage);
-      if (currentPage > totalPages) currentPage = totalPages;
-
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const paginatedItems = filteredList.slice(startIndex, startIndex + itemsPerPage);
-
-      listEl.innerHTML = paginatedItems.map((item) => `
-        <div class="vocab-item">
-          <div class="vocab-info">
-            <div>
-              <span class="word-title">${escapeHtml(item.word)}</span>
-              ${item.phonetic ? `<span class="phonetic-text">${escapeHtml(item.phonetic)}</span>` : ''}
-            </div>
-            <div class="meaning-text">${escapeHtml(item.meaning)}</div>
-          </div>
-          <div class="action-btns">
-            <button class="icon-btn" onclick="speakText('${escapeJsString(item.word)}')" title="Phát âm">🔊</button>
-            <button class="icon-btn delete-btn" onclick="deleteWord(${item.id})" title="Xóa từ vựng">🗑️</button>
-          </div>
-        </div>
-      `).join('');
-
-      renderPaginationControls(totalPages);
-    }
-
-    function renderPaginationControls(totalPages) {
-      const paginationEl = document.getElementById('pagination-controls');
-      if (totalPages <= 1) {
-        paginationEl.innerHTML = '';
-        return;
-      }
-
-      paginationEl.innerHTML = `
-        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}>⬅️ Trang trước</button>
-        <span style="font-size: 0.9rem; font-weight: 600; color: var(--subtext);">${currentPage} / ${totalPages}</span>
-        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Trang sau ➡️</button>
-      `;
-    }
-
-    function changePage(delta) {
-      currentPage += delta;
-      renderVocabList();
-    }
-
-    async function addWord() {
-      const wordInput = document.getElementById('new-word');
-      const phoneticInput = document.getElementById('new-phonetic');
-      const meaningInput = document.getElementById('new-meaning');
-
-      const word = wordInput.value.trim();
-      const phonetic = phoneticInput.value.trim();
-      const meaning = meaningInput.value.trim();
-
-      if (!word || !meaning) {
-        alert('Vui lòng nhập cả từ/cụm từ và nghĩa!');
-        return;
-      }
-
-      const todayStr = new Date().toISOString().split('T')[0];
-      const newEntry = {
-        id: Date.now(),
-        word,
-        phonetic,
-        meaning,
-        addedAt: todayStr
-      };
-
-      vocabData.unshift(newEntry);
-
-      wordInput.value = '';
-      phoneticInput.value = '';
-      meaningInput.value = '';
-
-      currentCardIndex = 0;
-      currentPage = 1;
-      prepareFlashcardDeck();
-      renderFlashcard();
-      renderVocabList();
-      updateStats();
-
-      if (accessToken && driveFileId) {
-        await updateDriveFile(vocabData);
-      }
-    }
-
-    async function deleteWord(id) {
-      if (!confirm('Bạn có chắc chắn muốn xóa từ vựng này khỏi danh sách?')) return;
-
-      vocabData = vocabData.filter(item => item.id !== id);
-
-      prepareFlashcardDeck();
-      if (currentCardIndex >= flashcardDeck.length) {
-        currentCardIndex = Math.max(0, flashcardDeck.length - 1);
-      }
-      renderFlashcard();
-      renderVocabList();
-      updateStats();
-
-      if (accessToken && driveFileId) {
-        await updateDriveFile(vocabData);
-      }
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function escapeJsString(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/"/g, '\\"');
-    }
-  </script>
-</body>
-</html>
+      const widgetContainer = document.getElementById('daily-widget-content
