@@ -759,9 +759,12 @@
           let aperture = meta.aperture ? `f/${meta.aperture.toFixed(1)}` : '';
           let exposureTime = meta.exposureTime ? (meta.exposureTime < 1 ? `1/${Math.round(1/meta.exposureTime)}s` : `${meta.exposureTime}s`) : '';
 
-          // Trích xuất Authors và Comments từ EXIF hoặc Google Drive Properties/Description
-          let extractedAuthor = meta.artist || meta.author || props.author || props.artist || props.Authors || '';
-          let extractedComments = meta.comments || meta.comment || props.comments || props.Comments || file.description || '';
+          // TRÍCH XUẤT TRỰC TIẾP TỪ DỮ LIỆU EXIF/IPTC BÊN TRONG FILE (imageMediaMetadata)
+          // Tác giả: Đọc từ EXIF Artist / Author hoặc thuộc tính Custom
+          const extractedAuthor = meta.artist || meta.author || props.author || props.artist || '';
+          
+          // Bình luận/Ghi chú: Đọc từ EXIF Comments hoặc Mô tả file
+          const extractedComments = meta.comment || meta.comments || file.description || props.comments || '';
 
           return {
             source: 'Drive Vocab Gallery',
@@ -897,7 +900,7 @@
       renderDailyWidget();
     }
 
-    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN ---
+    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN & HIỂN THỊ METADATA EXIF ---
     function openPhotoModal(index) {
       if (!photoFeed || photoFeed.length === 0) return;
       currentPhotoIndex = index;
@@ -928,8 +931,8 @@
         }
       };
 
-      // Hiển thị thông tin Author / Artist
-      addExifItem('Author / Artist', item.author);
+      // HIỂN THỊ THUỘC TÍNH ARTIST/AUTHOR VÀ COMMENTS TRÍCH XUẤT TỪ EXIF BÊN TRONG FILE
+      addExifItem('Author / Artist (EXIF)', item.author);
       addExifItem('Taken Date', item.takenDate);
       if (item.exif) {
         addExifItem('Camera', item.exif.camera);
@@ -938,8 +941,7 @@
         addExifItem('Shutter Speed', item.exif.shutterSpeed);
         addExifItem('ISO', item.exif.iso);
       }
-      // Hiển thị thông tin Comments (trích xuất từ EXIF/Properties)
-      addExifItem('Comments', item.comments, true);
+      addExifItem('Comments / EXIF Notes', item.comments, true);
 
       exifContainer.style.display = hasExifData ? 'grid' : 'none';
       renderDailyWidget();
