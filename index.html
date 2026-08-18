@@ -759,14 +759,18 @@
           let aperture = meta.aperture ? `f/${meta.aperture.toFixed(1)}` : '';
           let exposureTime = meta.exposureTime ? (meta.exposureTime < 1 ? `1/${Math.round(1/meta.exposureTime)}s` : `${meta.exposureTime}s`) : '';
 
+          // Trích xuất Authors và Comments từ EXIF hoặc Google Drive Properties/Description
+          let extractedAuthor = meta.artist || meta.author || props.author || props.artist || props.Authors || '';
+          let extractedComments = meta.comments || meta.comment || props.comments || props.Comments || file.description || '';
+
           return {
             source: 'Drive Vocab Gallery',
             title: props.title || file.name.replace(/\.[^/.]+$/, ""),
             imgUrl: displayUrl,
             hdUrl: hdUrl,
             caption: file.description || props.caption || 'Photo retrieved from Google Drive vocab folder.',
-            author: props.author || props.artist || '',
-            comments: props.comments || file.description || '',
+            author: extractedAuthor,
+            comments: extractedComments,
             takenDate: meta.date ? meta.date.split(' ')[0].replace(/:/g, '-') : (file.createdTime ? file.createdTime.split('T')[0] : ''),
             exif: {
               camera: (meta.cameraMake || meta.cameraModel) ? `${meta.cameraMake || ''} ${meta.cameraModel || ''}`.trim() : '',
@@ -924,6 +928,7 @@
         }
       };
 
+      // Hiển thị thông tin Author / Artist
       addExifItem('Author / Artist', item.author);
       addExifItem('Taken Date', item.takenDate);
       if (item.exif) {
@@ -933,6 +938,7 @@
         addExifItem('Shutter Speed', item.exif.shutterSpeed);
         addExifItem('ISO', item.exif.iso);
       }
+      // Hiển thị thông tin Comments (trích xuất từ EXIF/Properties)
       addExifItem('Comments', item.comments, true);
 
       exifContainer.style.display = hasExifData ? 'grid' : 'none';
