@@ -90,6 +90,7 @@
       margin-bottom: 20px;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
       border: 1px solid var(--border);
+      position: relative;
     }
 
     h2 { color: var(--primary); font-size: 1.25rem; margin-bottom: 14px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
@@ -249,6 +250,103 @@
       margin-top: 10px;
     }
 
+    /* Locked overlay cho gallery khi chưa đăng nhập */
+    .gallery-locked-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(6px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    /* Modal Viewer Pop-up & Metadata EXIF */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .modal-overlay.active { display: flex; }
+    
+    .modal-content {
+      background: #ffffff;
+      width: 100%;
+      max-width: 650px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      position: relative;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-close-btn {
+      position: absolute;
+      top: 12px; right: 12px;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      border: none;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+      z-index: 20;
+    }
+    .modal-img-container {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-height: 50vh;
+    }
+    .modal-img-container img {
+      max-width: 100%;
+      max-height: 50vh;
+      object-fit: contain;
+    }
+    .modal-details {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+    }
+    .modal-details h3 {
+      font-size: 1.2rem;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+    .exif-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+      background: #f8fafc;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .exif-item {
+      font-size: 0.85rem;
+      color: #334155;
+    }
+    .exif-item span {
+      font-weight: 600;
+      color: var(--text);
+    }
+
     /* Pagination Styling */
     .pagination {
       display: flex;
@@ -287,10 +385,17 @@
   </div>
 
   <!-- DAILY INSPIRATION / PRESS PHOTO WIDGET -->
-  <div class="card">
+  <div class="card" id="gallery-card">
+    <div id="gallery-lock" class="gallery-locked-overlay">
+      <span style="font-size: 2rem; margin-bottom: 8px;">🔒</span>
+      <h3 style="color: var(--text); font-size: 1.1rem; margin-bottom: 4px;">Google Drive Connection Required</h3>
+      <p style="color: var(--subtext); font-size: 0.88rem; margin-bottom: 12px;">Please sign-in to unlock your personal Drive photography gallery.</p>
+      <button class="btn" onclick="handleAuthClick()">Sign-in with Google</button>
+    </div>
+
     <h2>📰 Daily Knowledge & Photography Gallery</h2>
     <div id="daily-widget-content">
-      <p style="color: var(--subtext); text-align: center;">Loading high-res photos & captions...</p>
+      <p style="color: var(--subtext); text-align: center;">Loading photos & metadata...</p>
     </div>
   </div>
 
@@ -340,10 +445,27 @@
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
+  <!-- POPUP MODAL EXIF VIEWER -->
+  <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
+      <div class="modal-img-container">
+        <img id="modal-img" src="" alt="Full view" />
+      </div>
+      <div class="modal-details">
+        <h3 id="modal-title">Photo Title</h3>
+        <p id="modal-caption" style="color: #475569; margin-bottom: 10px;"></p>
+        
+        <div id="modal-exif-container" class="exif-grid"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // --- GOOGLE DRIVE OAUTH CONFIG ---
     const CLIENT_ID = '77360573208-rvps7dsakd2qbg6rvnoaa5927gijhaeb.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    // Đã thêm scope read để truy cập folder vocab
+    const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = 'eng_vocab_data.json';
 
     let tokenClient;
@@ -365,35 +487,6 @@
     let photoFeed = [];
     let currentPhotoIndex = 0;
 
-    // Kho ảnh Unsplash chất lượng cao theo các chủ đề đa dạng
-    const UNSPLASH_POOLS = {
-      geography: [
-        { id: '1451187580459-43490279c0fa', title: 'Atmosphere & Earth Horizon', caption: 'Satellite view of planet Earth displaying upper atmospheric scattering and oceanic dynamics.' },
-        { id: '1464822759023-fed622ff2c3b', title: 'Alpine Peak Topography', caption: 'Glacial eroded alpine ridgelines exhibiting steep physical geography and snowpack accumulation.' },
-        { id: '1506744038136-46273834b3fb', title: 'Yosemite Valley Canyon', caption: 'Granite monoliths and glacial valley carving captured during optimal directional light.' },
-        { id: '1470071459604-3b5ec3a7fe05', title: 'Mist & Forest Canopy', caption: 'Dense atmospheric moisture interception across high-elevation evergreen forestry.' }
-      ],
-      aviation: [
-        { id: '1540959733332-eab4deabeeaf', title: 'Commercial Flight Wing', caption: 'Aerodynamic lift generated over supercritical wing profile at cruising altitude pressure.' },
-        { id: '1519074069444-1ba4eff56022', title: 'Airport Runway Approach', caption: 'Final approach lighting system guiding precision instrument landing procedures.' },
-        { id: '1436491865332-7a61a109cc05', title: 'Turbofan Engine Propulsion', caption: 'High-bypass turbofan engine nacelle engineered for thermodynamic efficiency.' }
-      ],
-      nature: [
-        { id: '1441974231531-c6227db76b6e', title: 'Temperate Forest Canopy', caption: 'Photosynthetic light penetration filtering through dense deciduous tree canopy layers.' },
-        { id: '1472214103451-9374bd1c798e', title: 'Coastal Horizon Dynamics', caption: 'Hydrological wave displacement along rocky intertidal shorelines during golden hour.' },
-        { id: '1501854140801-50d01698950b', title: 'Valleys & Cloud Layer', caption: 'Thermal inversion trapping low-level fog within mountainous valley basins.' }
-      ],
-      architecture: [
-        { id: '1486406146926-c627a92ad1ab', title: 'Glass Modern Skyscraper', caption: 'Curtain wall structural engineering reflecting urban skylines with minimal geometric steel frames.' },
-        { id: '1513694203232-719a280e022f', title: 'Interior Spatial Flow', caption: 'Architectural emphasis on natural illumination, structural load balance, and spatial harmony.' },
-        { id: '1479839672679-a46483c0e7c8', title: 'Gothic Vault Geometry', caption: 'Ribbed vault ceiling architecture distributing structural masonry weight efficiently.' }
-      ],
-      photography: [
-        { id: '1492691527719-9d1e07e534b4', title: 'High Dynamic Range Vista', caption: 'Multi-exposure bracketing capturing deep shadow details alongside highlight retention.' },
-        { id: '1516035069371-29a1b244cc32', title: 'Prime Lens Optical Flare', caption: 'Controlled wide-aperture optical depth of field emphasizing subject isolation.' }
-      ]
-    };
-
     // --- INITIALIZATION ---
     window.onload = () => {
       initGapi();
@@ -402,7 +495,7 @@
       renderFlashcard();
       renderVocabList();
       updateStats();
-      loadDailyWidget();
+      updateStatus(false);
     };
 
     function initGapi() {
@@ -463,23 +556,27 @@
       gapi.client.setToken({ access_token: accessToken });
       updateStatus(true);
       await syncFromDrive();
+      await loadDailyWidget();
     }
 
     function updateStatus(isOnline) {
       const statusEl = document.getElementById('status');
       const authBtn = document.getElementById('auth-btn');
       const addBtn = document.getElementById('add-btn');
+      const lockOverlay = document.getElementById('gallery-lock');
 
       if (isOnline) {
         statusEl.className = 'status-indicator online';
         statusEl.innerHTML = '🟢 Google Drive Connected';
         authBtn.innerText = 'Sign-out';
         addBtn.disabled = false;
+        if (lockOverlay) lockOverlay.style.display = 'none';
       } else {
         statusEl.className = 'status-indicator offline';
         statusEl.innerHTML = '🔴 Not Connected';
         authBtn.innerText = 'Sign-in';
         addBtn.disabled = true;
+        if (lockOverlay) lockOverlay.style.display = 'flex';
       }
     }
 
@@ -507,18 +604,82 @@
     // --- HELPER BẢO VỆ CHỐNG CHẶN HOTLINK CHO ẢNH NASA ---
     function getSafeNasaImageUrl(rawUrl) {
       if (!rawUrl) return '';
-      // Nếu là ảnh lưu trữ trực tiếp trên máy chủ apod.nasa.gov, chạy qua proxy wsrv.nl để chống lỗi CORS / Hotlink block
       if (rawUrl.includes('apod.nasa.gov')) {
         return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&output=jpg&q=85`;
       }
       return rawUrl;
     }
 
-    // --- WIDGET DYNAMIC PHOTO FEED (NASA CHỐNG LỖI CORS + UNSPLASH) ---
+    // --- TRÍCH XUẤT 5 ẢNH NGẪU NHIÊN TỪ THƯ MỤC 'vocab' TRÊN DRIVE ---
+    async function fetchDriveVocabPhotos() {
+      if (!accessToken) return [];
+      try {
+        // 1. Tìm folder tên 'vocab'
+        const folderRes = await gapi.client.drive.files.list({
+          q: "mimeType = 'application/vnd.google-apps.folder' and name = 'vocab' and trashed = false",
+          fields: 'files(id, name)'
+        });
+
+        const folders = folderRes.result.files;
+        if (!folders || folders.length === 0) {
+          console.warn("Chưa tìm thấy folder 'vocab' trên Google Drive.");
+          return [];
+        }
+
+        const folderId = folders[0].id;
+
+        // 2. Lấy danh sách tệp ảnh trong folder vocab cùng các trường metadata & EXIF
+        const filesRes = await gapi.client.drive.files.list({
+          q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
+          fields: 'files(id, name, description, createdTime, imageMediaMetadata, properties, webContentLink)',
+          pageSize: 50
+        });
+
+        const files = filesRes.result.files || [];
+        if (files.length === 0) return [];
+
+        // 3. Shuffle ngẫu nhiên và lấy tối đa 5 ảnh
+        const shuffled = files.sort(() => 0.5 - Math.random()).slice(0, 5);
+
+        return shuffled.map(file => {
+          const meta = file.imageMediaMetadata || {};
+          const props = file.properties || {};
+
+          // Tạo URL hiển thị bằng Access Token
+          const imgUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&access_token=${accessToken}`;
+
+          // Format khẩu độ và tốc độ màn trập
+          let aperture = meta.aperture ? `f/${meta.aperture.toFixed(1)}` : '';
+          let exposureTime = meta.exposureTime ? (meta.exposureTime < 1 ? `1/${Math.round(1/meta.exposureTime)}s` : `${meta.exposureTime}s`) : '';
+
+          return {
+            source: 'Drive Vocab Gallery',
+            title: props.title || file.name.replace(/\.[^/.]+$/, ""),
+            imgUrl: imgUrl,
+            hdUrl: imgUrl,
+            caption: file.description || props.caption || 'Photo retrieved from Google Drive vocab folder.',
+            author: props.author || props.artist || '',
+            takenDate: meta.date ? meta.date.split(' ')[0].replace(/:/g, '-') : (file.createdTime ? file.createdTime.split('T')[0] : ''),
+            exif: {
+              camera: (meta.cameraMake || meta.cameraModel) ? `${meta.cameraMake || ''} ${meta.cameraModel || ''}`.trim() : '',
+              aperture: aperture,
+              shutterSpeed: exposureTime,
+              iso: meta.isoSpeed ? `ISO ${meta.isoSpeed}` : ''
+            }
+          };
+        });
+
+      } catch (err) {
+        console.error("Lỗi trích xuất ảnh từ folder vocab trên Drive:", err);
+        return [];
+      }
+    }
+
+    // --- WIDGET DYNAMIC PHOTO FEED (NASA + 5 ẢNH TỪ DRIVE VOCAB) ---
     async function loadDailyWidget() {
       photoFeed = [];
 
-      // 1. Tải NASA Picture of the Day với cơ chế chống chặn hotlink & proxy bẫy lỗi
+      // 1. Tải NASA Picture of the Day
       try {
         const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
         if (!nasaRes.ok) throw new Error('NASA API Rate limit or Network Error');
@@ -527,7 +688,6 @@
         let rawUrl = nasaData.url || nasaData.hdurl;
         let hdUrl = nasaData.hdurl || nasaData.url;
 
-        // Nếu NASA hôm nay phát video YouTube
         if (nasaData.media_type === 'video' && rawUrl) {
           const ytMatch = rawUrl.match(/(?:embed\/|v=)([^&?]+)/);
           if (ytMatch && ytMatch[1]) {
@@ -544,43 +704,30 @@
             title: nasaData.title || 'Astronomy Picture of the Day',
             imgUrl: safeImgUrl,
             hdUrl: hdUrl || safeImgUrl,
-            caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.'
+            caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.',
+            author: nasaData.copyright || 'NASA / APOD',
+            takenDate: nasaData.date || '',
+            exif: {}
           });
-        } else {
-          throw new Error('Invalid NASA image URL');
         }
       } catch (e) {
-        // Fallback ảnh không gian độ phân giải cao nếu NASA API bị giới hạn IP/Domain
         photoFeed.push({
           source: 'NASA Astronomy Space',
           title: 'Atmospheric Horizon & Orbital View',
           imgUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80',
           hdUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=3840&q=100',
-          caption: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.'
+          caption: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.',
+          author: 'NASA',
+          takenDate: '',
+          exif: {}
         });
       }
 
-      // 2. Tạo 5 ảnh Unsplash chất lượng cao theo danh mục
-      const categories = [
-        { key: 'geography', label: 'Physical Geography' },
-        { key: 'aviation', label: 'Aeronautics & Technology' },
-        { key: 'nature', label: 'Environmental Science' },
-        { key: 'architecture', label: 'Architectural Design' },
-        { key: 'photography', label: 'Optical Photography' }
-      ];
-
-      categories.forEach(cat => {
-        const pool = UNSPLASH_POOLS[cat.key];
-        const selected = pool[Math.floor(Math.random() * pool.length)];
-        
-        photoFeed.push({
-          source: cat.label,
-          title: selected.title,
-          imgUrl: `https://images.unsplash.com/photo-${selected.id}?auto=format&fit=crop&w=1000&q=80`,
-          hdUrl: `https://images.unsplash.com/photo-${selected.id}?auto=format&fit=crop&w=3840&q=100`,
-          caption: selected.caption
-        });
-      });
+      // 2. Lấy 5 ảnh từ Google Drive folder vocab
+      const drivePhotos = await fetchDriveVocabPhotos();
+      if (drivePhotos.length > 0) {
+        photoFeed = photoFeed.concat(drivePhotos);
+      }
 
       currentPhotoIndex = 0;
       renderDailyWidget();
@@ -589,25 +736,22 @@
     function renderDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
       if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Could not load photos.</p>`;
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">No photos found in Drive 'vocab' folder.</p>`;
         return;
       }
 
       const item = photoFeed[currentPhotoIndex];
-      const fallbackUrl = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80';
 
       widgetContainer.innerHTML = `
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <a href="${escapeHtml(item.hdUrl)}" target="_blank" title="Click to view full original photo">
-            <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onError="this.onerror=null; this.src='${fallbackUrl}';" />
-          </a>
+          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click to view photo & metadata EXIF" />
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
-          <a href="${escapeHtml(item.hdUrl)}" target="_blank" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569; text-decoration: none;">🔍 Open High-Res Image</a>
+          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 View Photo & EXIF</button>
           <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
         </div>
@@ -624,6 +768,47 @@
       if (photoFeed.length === 0) return;
       currentPhotoIndex = (currentPhotoIndex + 1) % photoFeed.length;
       renderDailyWidget();
+    }
+
+    // --- POPUP MODAL EXIF VIEWER FUNCTIONS ---
+    function openPhotoModal(index) {
+      const item = photoFeed[index];
+      if (!item) return;
+
+      document.getElementById('modal-img').src = item.hdUrl || item.imgUrl;
+      document.getElementById('modal-title').innerText = item.title || 'Untitled Photo';
+      document.getElementById('modal-caption').innerText = item.caption || '';
+
+      const exifContainer = document.getElementById('modal-exif-container');
+      exifContainer.innerHTML = '';
+
+      let hasExifData = false;
+
+      const addExifItem = (label, val) => {
+        if (val) {
+          hasExifData = true;
+          exifContainer.innerHTML += `
+            <div class="exif-item">${label}: <span>${escapeHtml(val)}</span></div>
+          `;
+        }
+      };
+
+      addExifItem('Author / Artist', item.author);
+      addExifItem('Taken Date', item.takenDate);
+      if (item.exif) {
+        addExifItem('Camera', item.exif.camera);
+        addExifItem('Aperture', item.exif.aperture);
+        addExifItem('Shutter Speed', item.exif.shutterSpeed);
+        addExifItem('ISO', item.exif.iso);
+      }
+
+      exifContainer.style.display = hasExifData ? 'grid' : 'none';
+
+      document.getElementById('photo-modal').classList.add('active');
+    }
+
+    function closePhotoModal(event) {
+      document.getElementById('photo-modal').classList.remove('active');
     }
 
     function prepareFlashcardDeck() {
@@ -670,6 +855,44 @@
         console.error('Lỗi tải dữ liệu:', err);
         if (err.status === 401) clearSession();
       }
+    }
+
+    async function createNewDriveFile(data) {
+      const metadata = {
+        name: FILE_NAME,
+        mimeType: 'application/json',
+      };
+      const multipartRequestBody =
+        '--boundary_123\r\n' +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) + '\r\n' +
+        '--boundary_123\r\n' +
+        'Content-Type: application/json\r\n\r\n' +
+        JSON.stringify(data) + '\r\n' +
+        '--boundary_123--';
+
+      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'multipart/related; boundary=boundary_123',
+        },
+        body: multipartRequestBody,
+      });
+      const resData = await response.json();
+      return resData.id;
+    }
+
+    async function updateDriveFile(data) {
+      if (!driveFileId) return;
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
     }
 
     async function addWord() {
@@ -886,28 +1109,14 @@
       }
     }
 
-    // --- DRIVE REST API HELPERS ---
-    async function createNewDriveFile(content) {
-      const metadata = { name: FILE_NAME, mimeType: 'application/json' };
-      const res = await gapi.client.drive.files.create({ resource: metadata, fields: 'id' });
-      const fileId = res.result.id;
-      await updateDriveFile(content, fileId);
-      return fileId;
-    }
-
-    async function updateDriveFile(content, fileId = driveFileId) {
-      return fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(content),
-      });
-    }
-
     function escapeHtml(str) {
-      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
   </script>
 </body>
