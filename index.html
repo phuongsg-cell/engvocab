@@ -7,6 +7,8 @@
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
+  <!-- Thêm thư viện đọc EXIF Metadata trực tiếp từ file ảnh -->
+  <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
   
   <style>
     :root {
@@ -234,6 +236,16 @@
       margin-top: 8px;
       max-height: 120px;
       overflow-y: auto;
+    }
+    .widget-comment-box {
+      font-size: 0.88rem;
+      color: #0f766e;
+      background: #ccfbf1;
+      border: 1px solid #99f6e4;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 8px;
+      font-weight: 500;
     }
     .widget-title {
       font-weight: 700;
@@ -712,6 +724,51 @@
       return x - Math.floor(x);
     }
 
+    // --- HÀM TRÍCH XUẤT EXIF COMMENTS TỪ FILE ẢNH GDRIVE ---
+    async function extractExifCommentFromDriveFile(fileId) {
+      if (typeof EXIF === 'undefined' || !accessToken) return '';
+      try {
+        const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        if (!resp.ok) return '';
+        const blob = await resp.blob();
+
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = function() {
+            EXIF.getData(img, function() {
+              const userComment = EXIF.getTag(this, "UserComment");
+              const imgDesc = EXIF.getTag(this, "ImageDescription");
+
+              let finalComment = '';
+              if (userComment) {
+                if (typeof userComment === 'string') {
+                  finalComment = userComment;
+                } else if (Array.isArray(userComment) || userComment instanceof Uint8Array) {
+                  // Chuyển chuỗi Byte của UserComment thành Text
+                  const filtered = Array.from(userComment).filter(code => code > 31 && code < 127);
+                  finalComment = String.fromCharCode.apply(null, filtered);
+                }
+              }
+              if (!finalComment && imgDesc) {
+                finalComment = imgDesc;
+              }
+
+              // Làm sạch tiền tố mã hóa Unicode/ASCII nếu có
+              finalComment = finalComment.replace(/^(UNICODE|ASCII|JIS)\0*/i, '').trim();
+              resolve(finalComment);
+            });
+          };
+          img.onerror = () => resolve('');
+          img.src = URL.createObjectURL(blob);
+        });
+      } catch (e) {
+        console.warn('Không thể trích xuất EXIF Comment từ tệp:', fileId, e);
+        return '';
+      }
+    }
+
     async function fetchDriveVocabPhotos() {
       if (!accessToken || typeof gapi === 'undefined' || !gapi.client || !gapi.client.drive) return [];
       try {
@@ -744,7 +801,7 @@
         const screenWidth = Math.max(window.innerWidth, window.screen.width || 1280);
         const targetWidth = Math.min(Math.max(screenWidth, 1024), 3840);
 
-        return selectedFiles.map(file => {
+        const photoPromises = selectedFiles.map(async (file) => {
           const meta = file.imageMediaMetadata || {};
           const props = file.properties || {};
 
@@ -759,12 +816,9 @@
           let aperture = meta.aperture ? `f/${meta.aperture.toFixed(1)}` : '';
           let exposureTime = meta.exposureTime ? (meta.exposureTime < 1 ? `1/${Math.round(1/meta.exposureTime)}s` : `${meta.exposureTime}s`) : '';
 
-          // TRÍCH XUẤT TRỰC TIẾP TỪ DỮ LIỆU EXIF/IPTC BÊN TRONG FILE (imageMediaMetadata)
-          // Tác giả: Đọc từ EXIF Artist / Author hoặc thuộc tính Custom
-          const extractedAuthor = meta.artist || meta.author || props.author || props.artist || '';
-          
-          // Bình luận/Ghi chú: Đọc từ EXIF Comments hoặc Mô tả file
-          const extractedComments = meta.comment || meta.comments || file.description || props.comments || '';
+          // Trích xuất comment trực tiếp từ file ảnh
+          const extractedComment = await extractExifCommentFromDriveFile(file.id);
+          const finalComment = extractedComment || props.comments || file.description || '';
 
           return {
             source: 'Drive Vocab Gallery',
@@ -772,8 +826,8 @@
             imgUrl: displayUrl,
             hdUrl: hdUrl,
             caption: file.description || props.caption || 'Photo retrieved from Google Drive vocab folder.',
-            author: extractedAuthor,
-            comments: extractedComments,
+            author: props.author || props.artist || '',
+            comments: finalComment,
             takenDate: meta.date ? meta.date.split(' ')[0].replace(/:/g, '-') : (file.createdTime ? file.createdTime.split('T')[0] : ''),
             exif: {
               camera: (meta.cameraMake || meta.cameraModel) ? `${meta.cameraMake || ''} ${meta.cameraModel || ''}`.trim() : '',
@@ -784,6 +838,8 @@
             }
           };
         });
+
+        return await Promise.all(photoPromises);
 
       } catch (err) {
         console.error("Lỗi lấy ảnh từ Drive:", err);
@@ -797,7 +853,6 @@
       try {
         let nasaData = null;
 
-        // 1. Thử truy vấn API NASA chính thức với DEMO_KEY
         try {
           const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
           if (nasaRes.ok) {
@@ -807,12 +862,11 @@
           console.warn('API NASA chính bị quá tải quota, chuyển sang nguồn dự phòng APOD JSON Mirror...');
         }
 
-        // 2. Nguồn dự phòng tự động (NASA APOD Microservice Mirror - Cập nhật tự động 24/7)
         if (!nasaData) {
           const fallbackRes = await fetch('https://raw.githubusercontent.com/nasa/apod-api/master/data.json');
           if (fallbackRes.ok) {
             const list = await fallbackRes.json();
-            nasaData = list[list.length - 1]; // Lấy phần tử ảnh mới nhất hôm nay
+            nasaData = list[list.length - 1];
           }
         }
 
@@ -820,7 +874,6 @@
           let rawUrl = nasaData.url || nasaData.hdurl;
           let hdUrl = nasaData.hdurl || nasaData.url;
 
-          // Xử lý bài đăng video YouTube (nếu NASA đăng video thay vì ảnh)
           if (nasaData.media_type === 'video' && rawUrl) {
             const ytMatch = rawUrl.match(/(?:embed\/|v=)([^&?]+)/);
             if (ytMatch && ytMatch[1]) {
@@ -829,7 +882,6 @@
             }
           }
 
-          // Đảm bảo định dạng giao thức HTTPS chuẩn
           if (rawUrl && rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
           if (hdUrl && hdUrl.startsWith('//')) hdUrl = 'https:' + hdUrl;
 
@@ -853,7 +905,6 @@
         console.error('Lỗi tải ảnh NASA APOD:', e);
       }
 
-      // Tải tiếp ảnh từ thư mục 'vocab' trên Google Drive (nếu có)
       const drivePhotos = await fetchDriveVocabPhotos();
       if (drivePhotos.length > 0) {
         photoFeed = photoFeed.concat(drivePhotos);
@@ -879,6 +930,7 @@
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
+        ${item.comments ? `<div class="widget-comment-box">💬 <b>Comments:</b> ${escapeHtml(item.comments)}</div>` : ''}
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
           <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom Photo</button>
@@ -900,7 +952,7 @@
       renderDailyWidget();
     }
 
-    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN & HIỂN THỊ METADATA EXIF ---
+    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN ---
     function openPhotoModal(index) {
       if (!photoFeed || photoFeed.length === 0) return;
       currentPhotoIndex = index;
@@ -931,8 +983,7 @@
         }
       };
 
-      // HIỂN THỊ THUỘC TÍNH ARTIST/AUTHOR VÀ COMMENTS TRÍCH XUẤT TỪ EXIF BÊN TRONG FILE
-      addExifItem('Author / Artist (EXIF)', item.author);
+      addExifItem('Author / Artist', item.author);
       addExifItem('Taken Date', item.takenDate);
       if (item.exif) {
         addExifItem('Camera', item.exif.camera);
@@ -941,7 +992,7 @@
         addExifItem('Shutter Speed', item.exif.shutterSpeed);
         addExifItem('ISO', item.exif.iso);
       }
-      addExifItem('Comments / EXIF Notes', item.comments, true);
+      addExifItem('Comments', item.comments, true);
 
       exifContainer.style.display = hasExifData ? 'grid' : 'none';
       renderDailyWidget();
