@@ -632,7 +632,6 @@
         return;
       }
 
-      // Sửa lỗi prompt: '' gây treo popup
       tokenClient.requestAccessToken({ prompt: 'select_account' });
     }
 
@@ -784,48 +783,64 @@
       photoFeed = [];
 
       try {
-        const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-        if (!nasaRes.ok) throw new Error('NASA API Rate limit');
-        
-        const nasaData = await nasaRes.json();
-        let rawUrl = nasaData.url || nasaData.hdurl;
-        let hdUrl = nasaData.hdurl || nasaData.url;
+        let nasaData = null;
 
-        if (nasaData.media_type === 'video' && rawUrl) {
-          const ytMatch = rawUrl.match(/(?:embed\/|v=)([^&?]+)/);
-          if (ytMatch && ytMatch[1]) {
-            rawUrl = `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
-            hdUrl = rawUrl;
+        // 1. Thử truy vấn API NASA chính thức với DEMO_KEY
+        try {
+          const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
+          if (nasaRes.ok) {
+            nasaData = await nasaRes.json();
+          }
+        } catch (err) {
+          console.warn('API NASA chính bị quá tải quota, chuyển sang nguồn dự phòng APOD JSON Mirror...');
+        }
+
+        // 2. Nguồn dự phòng tự động (NASA APOD Microservice Mirror - Cập nhật tự động 24/7)
+        if (!nasaData) {
+          const fallbackRes = await fetch('https://raw.githubusercontent.com/nasa/apod-api/master/data.json');
+          if (fallbackRes.ok) {
+            const list = await fallbackRes.json();
+            nasaData = list[list.length - 1]; // Lấy phần tử ảnh mới nhất hôm nay
           }
         }
 
-        const safeImgUrl = getSafeNasaImageUrl(rawUrl);
+        if (nasaData) {
+          let rawUrl = nasaData.url || nasaData.hdurl;
+          let hdUrl = nasaData.hdurl || nasaData.url;
 
-        if (safeImgUrl) {
-          photoFeed.push({
-            source: 'NASA Astronomy',
-            title: nasaData.title || 'Astronomy Picture of the Day',
-            imgUrl: safeImgUrl,
-            hdUrl: hdUrl || safeImgUrl,
-            caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.',
-            author: nasaData.copyright || 'NASA / APOD',
-            takenDate: nasaData.date || '',
-            exif: {}
-          });
+          // Xử lý bài đăng video YouTube (nếu NASA đăng video thay vì ảnh)
+          if (nasaData.media_type === 'video' && rawUrl) {
+            const ytMatch = rawUrl.match(/(?:embed\/|v=)([^&?]+)/);
+            if (ytMatch && ytMatch[1]) {
+              rawUrl = `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
+              hdUrl = rawUrl;
+            }
+          }
+
+          // Đảm bảo định dạng giao thức HTTPS chuẩn
+          if (rawUrl && rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
+          if (hdUrl && hdUrl.startsWith('//')) hdUrl = 'https:' + hdUrl;
+
+          const safeImgUrl = getSafeNasaImageUrl(rawUrl);
+
+          if (safeImgUrl) {
+            photoFeed.push({
+              source: 'NASA Astronomy',
+              title: nasaData.title || 'Astronomy Picture of the Day',
+              imgUrl: safeImgUrl,
+              hdUrl: hdUrl || safeImgUrl,
+              caption: nasaData.explanation || 'Ảnh thiên văn học trong ngày từ NASA Astronomy Picture of the Day.',
+              author: nasaData.copyright ? `© ${nasaData.copyright.trim()}` : 'NASA / APOD',
+              takenDate: nasaData.date || new Date().toISOString().split('T')[0],
+              exif: {}
+            });
+          }
         }
       } catch (e) {
-        photoFeed.push({
-          source: 'NASA Astronomy Space',
-          title: 'Atmospheric Horizon & Orbital View',
-          imgUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80',
-          hdUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=3840&q=100',
-          caption: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.',
-          author: 'NASA',
-          takenDate: '',
-          exif: {}
-        });
+        console.error('Lỗi tải ảnh NASA APOD:', e);
       }
 
+      // Tải tiếp ảnh từ thư mục 'vocab' trên Google Drive (nếu có)
       const drivePhotos = await fetchDriveVocabPhotos();
       if (drivePhotos.length > 0) {
         photoFeed = photoFeed.concat(drivePhotos);
@@ -838,7 +853,7 @@
     function renderDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
       if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">No photos found in Drive 'vocab' folder.</p>`;
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">No photos found.</p>`;
         return;
       }
 
@@ -1208,7 +1223,6 @@
       }
     }
 
-    // Đã sửa lỗi cú pháp escapeHtml
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
@@ -1216,7 +1230,7 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replace(/'/g, '&#039;');
     }
 
     function escapeJsString(str) {
