@@ -323,7 +323,7 @@
       max-height: 100%;
       width: auto;
       height: auto;
-      object-fit: contain; /* Tự điều chỉnh kích thước vừa vặn theo độ phân giải thiết bị */
+      object-fit: contain;
     }
     
     .modal-toolbar {
@@ -341,7 +341,7 @@
       overflow-y: auto;
       font-size: 0.9rem;
       border-top: 1px solid #334155;
-      display: none; /* Mặc định ẩn, bật khi bấm nút */
+      display: none;
       max-height: 35vh;
     }
     .modal-details.show {
@@ -679,7 +679,6 @@
         const files = filesRes.result.files || [];
         if (files.length === 0) return [];
 
-        // Trộn ảnh ngẫu nhiên dựa vào Seed thời gian theo Giờ (Hourly Seed)
         const currentHourSeed = getHourlySeed();
         const shuffled = [...files].sort((a, b) => {
           return seededRandom(currentHourSeed + a.id) - seededRandom(currentHourSeed + b.id);
@@ -687,9 +686,8 @@
 
         const selectedFiles = shuffled.slice(0, 5);
 
-        // Tính toán kích thước màn hình hiện tại để request ảnh tối ưu nhất
         const screenWidth = Math.max(window.innerWidth, window.screen.width || 1280);
-        const targetWidth = Math.min(Math.max(screenWidth, 1024), 3840); // Tự động chọn độ phân giải tương ứng
+        const targetWidth = Math.min(Math.max(screenWidth, 1024), 3840);
 
         return selectedFiles.map(file => {
           const meta = file.imageMediaMetadata || {};
@@ -855,7 +853,6 @@
 
       exifContainer.style.display = hasExifData ? 'grid' : 'none';
 
-      // Mặc định ẩn Metadata khi vừa phóng to để xem ảnh cho thoáng
       const detailsPanel = document.getElementById('modal-details-panel');
       detailsPanel.classList.remove('show');
       document.getElementById('meta-toggle-btn-text').innerText = 'Hiện Metadata / EXIF';
@@ -964,6 +961,131 @@
       });
     }
 
+    // --- UI ACTIONS & RENDERERS ---
+    function renderFlashcard() {
+      const card = document.getElementById('flashcard');
+      card.classList.remove('flipped');
+
+      if (flashcardDeck.length === 0) {
+        document.getElementById('fc-word').innerText = 'Chưa có từ vựng';
+        document.getElementById('fc-phonetic').innerText = '';
+        document.getElementById('fc-meaning').innerText = 'Hãy thêm từ vựng mới bên dưới';
+        document.getElementById('fc-counter').innerText = '0 / 0';
+        return;
+      }
+
+      const item = flashcardDeck[currentCardIndex];
+      document.getElementById('fc-word').innerText = item.word;
+      document.getElementById('fc-phonetic').innerText = item.phonetic || '';
+      document.getElementById('fc-meaning').innerText = item.meaning;
+      document.getElementById('fc-counter').innerText = `${currentCardIndex + 1} / ${flashcardDeck.length}`;
+    }
+
+    function flipCard() {
+      if (flashcardDeck.length === 0) return;
+      document.getElementById('flashcard').classList.toggle('flipped');
+    }
+
+    function nextCard() {
+      if (flashcardDeck.length === 0) return;
+      currentCardIndex = (currentCardIndex + 1) % flashcardDeck.length;
+      renderFlashcard();
+    }
+
+    function prevCard() {
+      if (flashcardDeck.length === 0) return;
+      currentCardIndex = (currentCardIndex - 1 + flashcardDeck.length) % flashcardDeck.length;
+      renderFlashcard();
+    }
+
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) {
+        alert('Trình duyệt của bạn không hỗ trợ đọc âm thanh (Speech Synthesis).');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function speakCurrentCard() {
+      if (flashcardDeck.length === 0) return;
+      const word = flashcardDeck[currentCardIndex].word;
+      speakText(word);
+    }
+
+    function getFilteredVocabList() {
+      const query = document.getElementById('search-input').value.toLowerCase().trim();
+      if (!query) return vocabData;
+      return vocabData.filter(item => 
+        item.word.toLowerCase().includes(query) || 
+        item.meaning.toLowerCase().includes(query)
+      );
+    }
+
+    function onSearchInput() {
+      currentPage = 1;
+      renderVocabList();
+    }
+
+    function renderVocabList() {
+      const listEl = document.getElementById('vocab-list');
+      const paginationEl = document.getElementById('pagination-controls');
+
+      const filteredList = getFilteredVocabList();
+
+      if (filteredList.length === 0) {
+        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px 0;">Không tìm thấy từ vựng nào.</p>';
+        paginationEl.innerHTML = '';
+        return;
+      }
+
+      const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const paginatedItems = filteredList.slice(startIndex, startIndex + itemsPerPage);
+
+      listEl.innerHTML = paginatedItems.map((item) => `
+        <div class="vocab-item">
+          <div class="vocab-info">
+            <div>
+              <span class="word-title">${escapeHtml(item.word)}</span>
+              ${item.phonetic ? `<span class="phonetic-text">${escapeHtml(item.phonetic)}</span>` : ''}
+            </div>
+            <div class="meaning-text">${escapeHtml(item.meaning)}</div>
+          </div>
+          <div class="action-btns">
+            <button class="icon-btn" onclick="speakText('${escapeJsString(item.word)}')" title="Phát âm">🔊</button>
+            <button class="icon-btn delete-btn" onclick="deleteWord(${item.id})" title="Xóa từ vựng">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+
+      renderPaginationControls(totalPages);
+    }
+
+    function renderPaginationControls(totalPages) {
+      const paginationEl = document.getElementById('pagination-controls');
+      if (totalPages <= 1) {
+        paginationEl.innerHTML = '';
+        return;
+      }
+
+      paginationEl.innerHTML = `
+        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}>⬅️ Trang trước</button>
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--subtext);">${currentPage} / ${totalPages}</span>
+        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Trang sau ➡️</button>
+      `;
+    }
+
+    function changePage(delta) {
+      currentPage += delta;
+      renderVocabList();
+    }
+
     async function addWord() {
       const wordInput = document.getElementById('new-word');
       const phoneticInput = document.getElementById('new-phonetic');
@@ -974,218 +1096,71 @@
       const meaning = meaningInput.value.trim();
 
       if (!word || !meaning) {
-        alert('Vui lòng nhập Từ tiếng Anh và Nghĩa!');
+        alert('Vui lòng nhập cả từ/cụm từ và nghĩa!');
         return;
       }
 
       const todayStr = new Date().toISOString().split('T')[0];
-      const newItem = { 
-        id: Date.now(), 
-        word, 
-        phonetic, 
+      const newEntry = {
+        id: Date.now(),
+        word,
+        phonetic,
         meaning,
         addedAt: todayStr
       };
-      
-      vocabData.unshift(newItem);
 
-      const addBtn = document.getElementById('add-btn');
-      addBtn.disabled = true;
-      addBtn.innerText = 'Đang lưu lên Drive...';
+      vocabData.unshift(newEntry);
 
-      try {
+      wordInput.value = '';
+      phoneticInput.value = '';
+      meaningInput.value = '';
+
+      currentCardIndex = 0;
+      currentPage = 1;
+      prepareFlashcardDeck();
+      renderFlashcard();
+      renderVocabList();
+      updateStats();
+
+      if (accessToken && driveFileId) {
         await updateDriveFile(vocabData);
-
-        wordInput.value = '';
-        phoneticInput.value = '';
-        meaningInput.value = '';
-        
-        currentCardIndex = 0;
-        currentPage = 1;
-        prepareFlashcardDeck();
-        renderFlashcard();
-        renderVocabList();
-        updateStats();
-      } catch (err) {
-        alert('Lỗi lưu Drive: ' + err.message);
-        vocabData.shift();
-      } finally {
-        addBtn.disabled = false;
-        addBtn.innerText = 'Save';
       }
     }
 
     async function deleteWord(id) {
-      const targetWord = vocabData.find(item => item.id === id);
-      if (!targetWord) return;
+      if (!confirm('Bạn có chắc chắn muốn xóa từ vựng này khỏi danh sách?')) return;
 
-      if (!confirm(`Bạn có chắc muốn xóa từ "${targetWord.word}" không?`)) {
-        return;
-      }
-
-      const previousData = [...vocabData];
       vocabData = vocabData.filter(item => item.id !== id);
 
       prepareFlashcardDeck();
       if (currentCardIndex >= flashcardDeck.length) {
         currentCardIndex = Math.max(0, flashcardDeck.length - 1);
       }
-
       renderFlashcard();
       renderVocabList();
       updateStats();
 
       if (accessToken && driveFileId) {
-        try {
-          await updateDriveFile(vocabData);
-        } catch (err) {
-          alert('Lỗi khi cập nhật Google Drive: ' + err.message);
-          vocabData = previousData;
-          prepareFlashcardDeck();
-          renderFlashcard();
-          renderVocabList();
-          updateStats();
-        }
-      }
-    }
-
-    // --- FLASHCARD & AUDIO FUNCTIONS ---
-    function renderFlashcard() {
-      const fcWord = document.getElementById('fc-word');
-      const fcPhonetic = document.getElementById('fc-phonetic');
-      const fcMeaning = document.getElementById('fc-meaning');
-      const fcCounter = document.getElementById('fc-counter');
-      const card = document.getElementById('flashcard');
-
-      card.classList.remove('flipped');
-
-      if (flashcardDeck.length === 0) {
-        fcWord.innerText = 'No vocabulary';
-        fcPhonetic.innerText = '';
-        fcMeaning.innerText = 'Add new words below';
-        fcCounter.innerText = '0 / 0';
-        return;
-      }
-
-      const item = flashcardDeck[currentCardIndex];
-      fcWord.innerText = item.word;
-      fcPhonetic.innerText = item.phonetic || '';
-      fcMeaning.innerText = item.meaning;
-      fcCounter.innerText = `${currentCardIndex + 1} / ${flashcardDeck.length}`;
-    }
-
-    function flipCard() {
-      if (flashcardDeck.length === 0) return;
-      document.getElementById('flashcard').classList.toggle('flipped');
-    }
-
-    function prevCard() {
-      if (flashcardDeck.length === 0) return;
-      currentCardIndex = (currentCardIndex - 1 + flashcardDeck.length) % flashcardDeck.length;
-      renderFlashcard();
-    }
-
-    function nextCard() {
-      if (flashcardDeck.length === 0) return;
-      currentCardIndex = (currentCardIndex + 1) % flashcardDeck.length;
-      renderFlashcard();
-    }
-
-    function speakText(text) {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
-      } else {
-        alert('Trình duyệt không hỗ trợ phát âm audio.');
-      }
-    }
-
-    function speakCurrentCard() {
-      if (flashcardDeck.length > 0) {
-        speakText(flashcardDeck[currentCardIndex].word);
-      }
-    }
-
-    // --- RENDER DANH SÁCH TỪ VỰNG & TÌM KIẾM & PHÂN TRANG ---
-    function onSearchInput() {
-      currentPage = 1;
-      renderVocabList();
-    }
-
-    function changePage(delta) {
-      currentPage += delta;
-      renderVocabList();
-    }
-
-    function renderVocabList() {
-      const listEl = document.getElementById('vocab-list');
-      const paginationEl = document.getElementById('pagination-controls');
-      const searchInput = document.getElementById('search-input');
-      const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
-
-      if (vocabData.length === 0) {
-        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center;">Chưa có từ vựng nào.</p>';
-        paginationEl.innerHTML = '';
-        return;
-      }
-
-      const filteredData = vocabData.filter(item => {
-        const wordMatch = item.word && item.word.toLowerCase().includes(query);
-        const meaningMatch = item.meaning && item.meaning.toLowerCase().includes(query);
-        return wordMatch || meaningMatch;
-      });
-
-      if (filteredData.length === 0) {
-        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center;">Không tìm thấy từ phù hợp.</p>';
-        paginationEl.innerHTML = '';
-        return;
-      }
-
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-      if (currentPage > totalPages) currentPage = totalPages;
-      if (currentPage < 1) currentPage = 1;
-
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const pagedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
-
-      listEl.innerHTML = pagedData.map(item => `
-        <div class="vocab-item">
-          <div class="vocab-info">
-            <div>
-              <span class="word-title">${escapeHtml(item.word)}</span>
-              ${item.phonetic ? `<span class="phonetic-text">${escapeHtml(item.phonetic)}</span>` : ''}
-            </div>
-            <div class="meaning-text">${escapeHtml(item.meaning)}</div>
-          </div>
-          <div class="action-btns">
-            <button class="icon-btn" onclick="speakText('${escapeHtml(item.word)}')" title="Phát âm">🔊</button>
-            <button class="icon-btn delete-btn" onclick="deleteWord(${item.id})" title="Xóa từ này">🗑️</button>
-          </div>
-        </div>
-      `).join('');
-
-      if (totalPages > 1) {
-        paginationEl.innerHTML = `
-          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}>⬅️ Prev</button>
-          <span style="font-weight: 600; color: var(--subtext); font-size: 0.9rem;">Page ${currentPage} / ${totalPages}</span>
-          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Next ➡️</button>
-        `;
-      } else {
-        paginationEl.innerHTML = '';
+        await updateDriveFile(vocabData);
       }
     }
 
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeJsString(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"');
     }
   </script>
 </body>
