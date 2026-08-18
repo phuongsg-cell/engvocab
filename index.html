@@ -378,15 +378,6 @@
       color: #38bdf8;
       margin-bottom: 6px;
     }
-    .modal-subject-box {
-      color: #cbd5e1;
-      margin-bottom: 10px;
-      line-height: 1.5;
-      background: #1e293b;
-      padding: 10px 14px;
-      border-radius: 6px;
-      border: 1px solid #334155;
-    }
     .exif-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -518,9 +509,7 @@
 
       <div class="modal-details" id="modal-details-panel">
         <h3 id="modal-title">Photo Title</h3>
-        <div class="modal-subject-box">
-          <strong style="color: #38bdf8;">Subject:</strong> <span id="modal-subject"></span>
-        </div>
+        <p id="modal-caption" style="color: #cbd5e1; margin-bottom: 10px;"></p>
         <div id="modal-exif-container" class="exif-grid"></div>
       </div>
     </div>
@@ -561,7 +550,7 @@
       updateStats();
       updateStatus(false);
 
-      // Thêm bàn phím chuyển ảnh bằng phím mũi tên Left/Right
+      // Bàn phím chuyển ảnh bằng phím mũi tên Left/Right/Escape
       document.addEventListener('keydown', (e) => {
         const modal = document.getElementById('photo-modal');
         if (modal.classList.contains('active')) {
@@ -573,6 +562,7 @@
     };
 
     function initGapi() {
+      if (typeof gapi === 'undefined') return;
       gapi.load('client', async () => {
         await gapi.client.init({});
         await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
@@ -581,11 +571,18 @@
     }
 
     function initGis() {
+      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+        console.warn('Google GIS SDK chưa sẵn sàng.');
+        return;
+      }
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: async (resp) => {
-          if (resp.error) return;
+          if (resp.error) {
+            console.error('OAuth Error:', resp);
+            return;
+          }
           accessToken = resp.access_token;
           const expiresIn = resp.expires_in || 3600;
           const expiresAt = Date.now() + expiresIn * 1000;
@@ -604,7 +601,9 @@
 
       if (savedToken && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
         accessToken = savedToken;
-        gapi.client.setToken({ access_token: accessToken });
+        if (typeof gapi !== 'undefined' && gapi.client) {
+          gapi.client.setToken({ access_token: accessToken });
+        }
         onAuthenticated();
       } else {
         clearSession();
@@ -621,13 +620,26 @@
     function handleAuthClick() {
       if (accessToken) {
         clearSession();
-      } else {
-        tokenClient.requestAccessToken({ prompt: '' });
+        return;
       }
+
+      if (!tokenClient) {
+        initGis();
+      }
+
+      if (!tokenClient) {
+        alert('Đang tải thư viện đăng nhập Google, vui lòng thử lại sau vài giây!');
+        return;
+      }
+
+      // Sửa lỗi prompt: '' gây treo popup
+      tokenClient.requestAccessToken({ prompt: 'select_account' });
     }
 
     async function onAuthenticated() {
-      gapi.client.setToken({ access_token: accessToken });
+      if (typeof gapi !== 'undefined' && gapi.client) {
+        gapi.client.setToken({ access_token: accessToken });
+      }
       updateStatus(true);
       await syncFromDrive();
       await loadDailyWidget();
@@ -699,7 +711,7 @@
     }
 
     async function fetchDriveVocabPhotos() {
-      if (!accessToken) return [];
+      if (!accessToken || typeof gapi === 'undefined' || !gapi.client || !gapi.client.drive) return [];
       try {
         const folderRes = await gapi.client.drive.files.list({
           q: "mimeType = 'application/vnd.google-apps.folder' and name = 'vocab' and trashed = false",
@@ -750,7 +762,7 @@
             title: props.title || file.name.replace(/\.[^/.]+$/, ""),
             imgUrl: displayUrl,
             hdUrl: hdUrl,
-            subject: file.description || props.caption || props.subject || 'Photo retrieved from Google Drive vocab folder.',
+            caption: file.description || props.caption || 'Photo retrieved from Google Drive vocab folder.',
             author: props.author || props.artist || '',
             takenDate: meta.date ? meta.date.split(' ')[0].replace(/:/g, '-') : (file.createdTime ? file.createdTime.split('T')[0] : ''),
             exif: {
@@ -772,7 +784,6 @@
       photoFeed = [];
 
       try {
-        // LẤY ẢNH NGUỒN NASA ASTRONOMY PICTURE OF THE DAY (APOD) TỰ ĐỘNG THAY ĐỔI THEO NGÀY
         const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
         if (!nasaRes.ok) throw new Error('NASA API Rate limit');
         
@@ -792,24 +803,23 @@
 
         if (safeImgUrl) {
           photoFeed.push({
-            source: 'NASA Picture of the Day',
+            source: 'NASA Astronomy',
             title: nasaData.title || 'Astronomy Picture of the Day',
             imgUrl: safeImgUrl,
             hdUrl: hdUrl || safeImgUrl,
-            subject: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.',
+            caption: nasaData.explanation || 'An astronomical photograph featured by NASA Astronomy Picture of the Day.',
             author: nasaData.copyright || 'NASA / APOD',
             takenDate: nasaData.date || '',
             exif: {}
           });
         }
       } catch (e) {
-        console.error("Lỗi tải NASA APOD:", e);
         photoFeed.push({
-          source: 'NASA Picture of the Day',
+          source: 'NASA Astronomy Space',
           title: 'Atmospheric Horizon & Orbital View',
           imgUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80',
           hdUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=3840&q=100',
-          subject: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.',
+          caption: 'Satellite perspective of planet Earth displaying atmospheric limb luminescence and low Earth orbit geography.',
           author: 'NASA',
           takenDate: '',
           exif: {}
@@ -840,7 +850,7 @@
           <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click to zoom in" />
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
-        <div class="widget-caption">${escapeHtml(item.subject)}</div>
+        <div class="widget-caption">${escapeHtml(item.caption)}</div>
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
           <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom Photo</button>
@@ -862,7 +872,7 @@
       renderDailyWidget();
     }
 
-    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN & NÚT ĐIỀU HƯỚNG ---
+    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN ---
     function openPhotoModal(index) {
       if (!photoFeed || photoFeed.length === 0) return;
       currentPhotoIndex = index;
@@ -878,9 +888,7 @@
       document.getElementById('modal-title-bar').innerText = item.title || 'Photo View';
       document.getElementById('modal-photo-counter').innerText = `${currentPhotoIndex + 1} / ${photoFeed.length}`;
       document.getElementById('modal-title').innerText = item.title || 'Untitled Photo';
-      
-      // HIỂN THỊ THÔNG TIN VÀO Ô SUBJECT TRONG METADATA PANEL
-      document.getElementById('modal-subject').innerText = item.subject || 'N/A';
+      document.getElementById('modal-caption').innerText = item.caption || '';
 
       const exifContainer = document.getElementById('modal-exif-container');
       exifContainer.innerHTML = '';
@@ -905,7 +913,7 @@
       }
 
       exifContainer.style.display = hasExifData ? 'grid' : 'none';
-      renderDailyWidget(); // Đồng bộ trạng thái ảnh đang chọn ở giao diện chính
+      renderDailyWidget();
     }
 
     function navigateModalPhoto(direction) {
@@ -947,6 +955,7 @@
 
     // --- DRIVE SYNC LOGIC ---
     async function syncFromDrive() {
+      if (typeof gapi === 'undefined' || !gapi.client || !gapi.client.drive) return;
       try {
         const res = await gapi.client.drive.files.list({
           q: `name='${FILE_NAME}' and trashed=false`,
@@ -1199,6 +1208,7 @@
       }
     }
 
+    // Đã sửa lỗi cú pháp escapeHtml
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
