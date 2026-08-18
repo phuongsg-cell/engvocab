@@ -442,8 +442,8 @@
     </div>
     
     <div class="status-group">
-      <div id="flickr-status" class="status-indicator offline">🔴 Flickr: Offline</div>
-      <button id="flickr-auth-btn" class="btn btn-flickr" onclick="handleFlickrAuthClick()">Sign-in Flickr</button>
+      <div id="flickr-status" class="status-indicator offline">🔴 Flickr: Public Mode</div>
+      <button id="flickr-auth-btn" class="btn btn-flickr" onclick="handleFlickrAuthClick()">Connect Flickr</button>
     </div>
   </div>
 
@@ -548,7 +548,7 @@
     const FILE_NAME = 'eng_vocab_data.json';
 
     // --- FLICKR CONFIG ---
-    const FLICKR_API_KEY = 'a8f0ef118541fb0bd2b1238eb41e8c8a'; // Demo Public API Key
+    const FLICKR_API_KEY = 'a8f0ef118541fb0bd2b1238eb41e8c8a'; 
     let flickrUser = localStorage.getItem('flickr_user') || '';
 
     let tokenClient;
@@ -581,7 +581,6 @@
       updateStats();
       updateStatus(false);
 
-      // Bàn phím chuyển ảnh bằng phím mũi tên Left/Right/Escape
       document.addEventListener('keydown', (e) => {
         const modal = document.getElementById('photo-modal');
         if (modal.classList.contains('active')) {
@@ -669,7 +668,7 @@
     /* --- FLICKR AUTHENTICATION LOGIC --- */
     function handleFlickrAuthClick() {
       if (flickrUser) {
-        if (confirm('Bạn có muốn đăng xuất khỏi tài khoản Flickr hiện tại?')) {
+        if (confirm('Bạn có muốn ngắt kết nối với Flickr hiện tại?')) {
           localStorage.removeItem('flickr_user');
           flickrUser = '';
           updateFlickrStatus();
@@ -678,7 +677,7 @@
         return;
       }
 
-      const input = prompt('Nhập Flickr User ID, Username hoặc URL Photostream cá nhân của bạn (VD: 12345678@N00 hoặc username):');
+      const input = prompt('Nhập Flickr User ID hoặc Username của bạn (VD: 12345678@N00 hoặc username):');
       if (input && input.trim()) {
         flickrUser = input.trim();
         localStorage.setItem('flickr_user', flickrUser);
@@ -694,11 +693,11 @@
       if (flickrUser) {
         statusEl.className = 'status-indicator online';
         statusEl.innerHTML = '🟢 Flickr: Connected';
-        btn.innerText = 'Sign-out Flickr';
+        btn.innerText = 'Disconnect Flickr';
       } else {
         statusEl.className = 'status-indicator offline';
-        statusEl.innerHTML = '🔴 Flickr: Public Mode';
-        btn.innerText = 'Sign-in Flickr';
+        statusEl.innerHTML = '🔴 Flickr: Public Feed';
+        btn.innerText = 'Connect Flickr';
       }
     }
 
@@ -761,88 +760,107 @@
       return rawUrl;
     }
 
-    /* --- TRÍCH XUẤT NGẪU NHIÊN 5 ẢNH TỪ FLICKR PHOTOSTREAM --- */
+    /* --- CƠ CHẾ NÂNG CẤP LẤY 5 ẢNH TỪ FLICKR KHÔNG BỊ CHẶN CORS --- */
     async function fetchRandomFlickrPhotos() {
+      let photos = [];
+
+      // Phương án 1: Gọi REST API chính thức
       try {
         let userId = flickrUser;
-        
-        // Nếu người dùng nhập username, chuyển sang NSID (User ID)
         if (userId && !userId.includes('@N')) {
           try {
             const userLookup = await fetch(`https://www.flickr.com/services/rest/?method=flickr.people.findByUsername&api_key=${FLICKR_API_KEY}&username=${encodeURIComponent(userId)}&format=json&nojsoncallback=1`);
             const userData = await userLookup.json();
-            if (userData.user && userData.user.nsid) {
-              userId = userData.user.nsid;
-            }
-          } catch(e) { console.warn('Lookup Flickr user error:', e); }
+            if (userData.user && userData.user.nsid) userId = userData.user.nsid;
+          } catch(e) {}
         }
 
-        let apiUrl = '';
-        if (userId) {
-          apiUrl = `https://www.flickr.com/services/rest/?method=flickr.people.getPublicPhotos&api_key=${FLICKR_API_KEY}&user_id=${encodeURIComponent(userId)}&extras=description,owner_name,date_taken,url_m,url_l,url_o&per_page=50&format=json&nojsoncallback=1`;
-        } else {
-          apiUrl = `https://www.flickr.com/services/rest/?method=flickr.photos.getInterestingnessList&api_key=${FLICKR_API_KEY}&extras=description,owner_name,date_taken,url_m,url_l,url_o&per_page=50&format=json&nojsoncallback=1`;
-        }
+        let apiUrl = userId 
+          ? `https://www.flickr.com/services/rest/?method=flickr.people.getPublicPhotos&api_key=${FLICKR_API_KEY}&user_id=${encodeURIComponent(userId)}&extras=description,owner_name,date_taken,url_m,url_l,url_o&per_page=40&format=json&nojsoncallback=1`
+          : `https://www.flickr.com/services/rest/?method=flickr.photos.getRecent&api_key=${FLICKR_API_KEY}&extras=description,owner_name,date_taken,url_m,url_l,url_o&per_page=40&format=json&nojsoncallback=1`;
 
         const res = await fetch(apiUrl);
-        if (!res.ok) return [];
-        const data = await res.json();
+        if (res.ok) {
+          const data = await res.json();
+          if (data.photos && data.photos.photo && data.photos.photo.length > 0) {
+            const shuffled = [...data.photos.photo].sort(() => 0.5 - Math.random()).slice(0, 5);
+            photos = await Promise.all(shuffled.map(async (photo) => {
+              let exifInfo = { camera: '', lens: '', aperture: '', shutterSpeed: '', iso: '' };
+              try {
+                const exifRes = await fetch(`https://www.flickr.com/services/rest/?method=flickr.photos.getExif&api_key=${FLICKR_API_KEY}&photo_id=${photo.id}&format=json&nojsoncallback=1`);
+                if (exifRes.ok) {
+                  const exifData = await exifRes.json();
+                  if (exifData.photo && exifData.photo.exif) {
+                    const exifs = exifData.photo.exif;
+                    const getVal = (tag) => {
+                      const f = exifs.find(e => e.tag === tag || e.label === tag);
+                      return f ? (f.raw ? f.raw._content : '') : '';
+                    };
+                    exifInfo.camera = exifData.photo.camera || getVal('Model');
+                    exifInfo.lens = getVal('Lens') || getVal('LensModel');
+                    exifInfo.aperture = getVal('FNumber') ? `f/${getVal('FNumber')}` : '';
+                    exifInfo.shutterSpeed = getVal('ExposureTime') ? `${getVal('ExposureTime')}s` : '';
+                    exifInfo.iso = getVal('ISO') ? `ISO ${getVal('ISO')}` : '';
+                  }
+                }
+              } catch(e) {}
 
-        if (!data.photos || !data.photos.photo || data.photos.photo.length === 0) return [];
+              const imgUrl = photo.url_l || photo.url_m || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
+              const cleanCap = photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '') : 'Flickr Photo Stream';
 
-        // Chọn ngẫu nhiên 5 ảnh từ Photostream
-        const photoList = [...data.photos.photo].sort(() => 0.5 - Math.random());
-        const selected = photoList.slice(0, 5);
-
-        // Lấy chi tiết & EXIF từng ảnh
-        const photosWithExif = await Promise.all(selected.map(async (photo) => {
-          let exifInfo = { camera: '', lens: '', aperture: '', shutterSpeed: '', iso: '' };
-          
-          try {
-            const exifRes = await fetch(`https://www.flickr.com/services/rest/?method=flickr.photos.getExif&api_key=${FLICKR_API_KEY}&photo_id=${photo.id}&format=json&nojsoncallback=1`);
-            if (exifRes.ok) {
-              const exifData = await exifRes.json();
-              if (exifData.photo && exifData.photo.exif) {
-                const exifs = exifData.photo.exif;
-                const getExifVal = (tag) => {
-                  const found = exifs.find(e => e.tag === tag || e.label === tag);
-                  return found ? (found.raw ? found.raw._content : '') : '';
-                };
-
-                exifInfo.camera = exifData.photo.camera || getExifVal('Model') || getExifVal('Make');
-                exifInfo.lens = getExifVal('Lens') || getExifVal('LensModel');
-                exifInfo.aperture = getExifVal('FNumber') ? `f/${getExifVal('FNumber')}` : '';
-                exifInfo.shutterSpeed = getExifVal('ExposureTime') ? `${getExifVal('ExposureTime')}s` : '';
-                exifInfo.iso = getExifVal('ISO') ? `ISO ${getExifVal('ISO')}` : '';
-              }
-            }
-          } catch(e) {
-            console.warn('Lỗi lấy EXIF Flickr:', e);
+              return {
+                source: 'Flickr Photostream',
+                title: photo.title || 'Untitled Flickr Photo',
+                imgUrl: imgUrl,
+                hdUrl: photo.url_o || photo.url_l || imgUrl,
+                caption: cleanCap,
+                author: photo.ownername || 'Flickr Photographer',
+                comments: '',
+                takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
+                exif: exifInfo
+              };
+            }));
           }
-
-          const imgUrl = photo.url_l || photo.url_m || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
-          const hdUrl = photo.url_o || photo.url_l || imgUrl;
-          const cleanCaption = photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '') : 'Flickr Photostream Photo';
-
-          return {
-            source: 'Flickr Photostream',
-            title: photo.title || 'Untitled Flickr Photo',
-            imgUrl: imgUrl,
-            hdUrl: hdUrl,
-            caption: cleanCaption,
-            author: photo.ownername ? photo.ownername : (userId || 'Flickr Photographer'),
-            comments: '',
-            takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
-            exif: exifInfo
-          };
-        }));
-
-        return photosWithExif;
-
+        }
       } catch (err) {
-        console.error("Lỗi lấy 5 ảnh từ Flickr:", err);
-        return [];
+        console.warn("REST API bị hạn chế, đang sử dụng Public Feeds dự phòng...");
       }
+
+      // Phương án 2: Sử dụng CORS Proxy & Flickr Public Feed Dự phòng nếu REST API trả về rỗng
+      if (photos.length === 0) {
+        try {
+          const feedUrl = flickrUser 
+            ? `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.flickr.com/services/feeds/photos_public.gne?id=${flickrUser}&format=json&nojsoncallback=1`)}`
+            : `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1`)}`;
+          
+          const res = await fetch(feedUrl);
+          if (res.ok) {
+            const feedData = await res.json();
+            if (feedData && feedData.items && feedData.items.length > 0) {
+              const shuffled = [...feedData.items].sort(() => 0.5 - Math.random()).slice(0, 5);
+              photos = shuffled.map(item => {
+                const imgUrl = item.media ? item.media.m.replace('_m.', '_b.') : item.link;
+                const cleanCap = item.description ? item.description.replace(/<[^>]*>?/gm, '').trim() : '';
+                return {
+                  source: 'Flickr Public Feed',
+                  title: item.title || 'Flickr Photo',
+                  imgUrl: imgUrl,
+                  hdUrl: imgUrl,
+                  caption: cleanCap || 'Public photo stream from Flickr',
+                  author: item.author ? item.author.replace(/nobody@flickr\.com \("(.*)"\)/, '$1') : 'Flickr User',
+                  comments: '',
+                  takenDate: item.date_taken ? item.date_taken.split('T')[0] : '',
+                  exif: {}
+                };
+              });
+            }
+          }
+        } catch(e) {
+          console.error("Lỗi tải Flickr Public Feed:", e);
+        }
+      }
+
+      return photos;
     }
 
     async function loadDailyWidget() {
