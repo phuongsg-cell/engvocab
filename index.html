@@ -42,7 +42,6 @@
     .header h1 { color: var(--primary); font-size: 1.8rem; margin-bottom: 4px; }
     .header p { color: var(--subtext); font-size: 0.95rem; }
 
-    /* Drive & Flickr Connection Status Bar */
     .status-bar {
       display: flex;
       justify-content: space-between;
@@ -65,7 +64,6 @@
     .status-indicator.online { color: var(--success); }
     .status-indicator.offline { color: var(--danger); }
 
-    /* Stats Banner */
     .stats-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -102,7 +100,6 @@
 
     h2 { color: var(--primary); font-size: 1.25rem; margin-bottom: 14px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
 
-    /* Form Inputs */
     .input-group { margin-bottom: 10px; }
     input[type="text"] {
       width: 100%;
@@ -135,14 +132,9 @@
     .btn:hover { background-color: var(--primary-hover); }
     .btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
 
-    .btn-flickr {
-      background-color: var(--flickr);
-    }
-    .btn-flickr:hover {
-      background-color: var(--flickr-hover);
-    }
+    .btn-flickr { background-color: var(--flickr); }
+    .btn-flickr:hover { background-color: var(--flickr-hover); }
 
-    /* Flashcard Style */
     .flashcard {
       width: 100%;
       min-height: 180px;
@@ -168,7 +160,6 @@
 
     .flashcard-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
 
-    /* Vocab List Style */
     .vocab-item {
       padding: 12px 0;
       border-bottom: 1px solid var(--border);
@@ -205,7 +196,6 @@
       color: var(--danger);
     }
 
-    /* Daily Widget Style */
     .widget-img-container {
       position: relative;
       display: block;
@@ -224,9 +214,7 @@
       transition: transform 0.2s;
       display: block;
     }
-    .widget-img:hover {
-      transform: scale(1.01);
-    }
+    .widget-img:hover { transform: scale(1.01); }
     .widget-source-badge {
       position: absolute;
       top: 10px;
@@ -264,7 +252,6 @@
       margin-top: 10px;
     }
 
-    /* Locked overlay cho gallery */
     .gallery-locked-overlay {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -280,7 +267,6 @@
       text-align: center;
     }
 
-    /* MODAL POPUP PHÓNG TO ẢNH VÀ NÚT ĐIỀU HƯỚNG SANG TRÁI/PHẢI */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -341,7 +327,6 @@
       object-fit: contain;
     }
 
-    /* NÚT ĐIỀU HƯỚNG ẢNH TRONG MODAL */
     .modal-nav-btn {
       position: absolute;
       top: 50%;
@@ -386,14 +371,9 @@
       display: none;
       max-height: 35vh;
     }
-    .modal-details.show {
-      display: block;
-    }
-    .modal-details h3 {
-      font-size: 1.1rem;
-      color: #38bdf8;
-      margin-bottom: 6px;
-    }
+    .modal-details.show { display: block; }
+    .modal-details h3 { font-size: 1.1rem; color: #38bdf8; margin-bottom: 6px; }
+    
     .exif-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -404,19 +384,10 @@
       border-radius: 8px;
       border: 1px solid #334155;
     }
-    .exif-item {
-      font-size: 0.85rem;
-      color: #94a3b8;
-    }
-    .exif-item.full-width {
-      grid-column: span 2;
-    }
-    .exif-item span {
-      font-weight: 600;
-      color: #f1f5f9;
-    }
+    .exif-item { font-size: 0.85rem; color: #94a3b8; }
+    .exif-item.full-width { grid-column: span 2; }
+    .exif-item span { font-weight: 600; color: #f1f5f9; }
 
-    /* Pagination Styling */
     .pagination {
       display: flex;
       justify-content: center;
@@ -442,8 +413,8 @@
     </div>
     
     <div class="status-group">
-      <div id="flickr-status" class="status-indicator offline">🔴 Flickr: Public Mode</div>
-      <button id="flickr-auth-btn" class="btn btn-flickr" onclick="handleFlickrAuthClick()">Connect Flickr</button>
+      <div id="flickr-status" class="status-indicator offline">🔴 Flickr: Public Stream</div>
+      <button id="flickr-auth-btn" class="btn btn-flickr" onclick="handleFlickrAuthClick()">Connect Flickr ID</button>
     </div>
   </div>
 
@@ -502,7 +473,7 @@
       <input type="text" id="new-meaning" placeholder="Meaning (Example: Lời khuyên, sự giới thiệu)">
     </div>
     <button id="add-btn" class="btn" style="width: 100%; margin-top: 6px;" onclick="addWord()" disabled>
-      Save 
+      Save
     </button>
   </div>
 
@@ -542,13 +513,10 @@
   </div>
 
   <script>
-    // --- GOOGLE DRIVE OAUTH CONFIG ---
     const CLIENT_ID = '77360573208-rvps7dsakd2qbg6rvnoaa5927gijhaeb.apps.googleusercontent.com';
     const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = 'eng_vocab_data.json';
 
-    // --- FLICKR CONFIG ---
-    const FLICKR_API_KEY = 'a8f0ef118541fb0bd2b1238eb41e8c8a'; 
     let flickrUser = localStorage.getItem('flickr_user') || '';
 
     let tokenClient;
@@ -570,7 +538,6 @@
     let photoFeed = [];
     let currentPhotoIndex = 0;
 
-    // --- INITIALIZATION ---
     window.onload = () => {
       initGapi();
       initGis();
@@ -601,18 +568,12 @@
     }
 
     function initGis() {
-      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-        console.warn('Google GIS SDK chưa sẵn sàng.');
-        return;
-      }
+      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return;
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: async (resp) => {
-          if (resp.error) {
-            console.error('OAuth Error:', resp);
-            return;
-          }
+          if (resp.error) return;
           accessToken = resp.access_token;
           const expiresIn = resp.expires_in || 3600;
           const expiresAt = Date.now() + expiresIn * 1000;
@@ -652,23 +613,17 @@
         clearSession();
         return;
       }
-
-      if (!tokenClient) {
-        initGis();
-      }
-
+      if (!tokenClient) initGis();
       if (!tokenClient) {
         alert('Đang tải thư viện đăng nhập Google, vui lòng thử lại sau vài giây!');
         return;
       }
-
       tokenClient.requestAccessToken({ prompt: 'select_account' });
     }
 
-    /* --- FLICKR AUTHENTICATION LOGIC --- */
     function handleFlickrAuthClick() {
       if (flickrUser) {
-        if (confirm('Bạn có muốn ngắt kết nối với Flickr hiện tại?')) {
+        if (confirm('Ngắt kết nối với Flickr hiện tại?')) {
           localStorage.removeItem('flickr_user');
           flickrUser = '';
           updateFlickrStatus();
@@ -677,7 +632,7 @@
         return;
       }
 
-      const input = prompt('Nhập Flickr User ID hoặc Username của bạn (VD: 12345678@N00 hoặc username):');
+      const input = prompt('Nhập Flickr ID hoặc Username của bạn (VD: 12345678@N00 hoặc username):');
       if (input && input.trim()) {
         flickrUser = input.trim();
         localStorage.setItem('flickr_user', flickrUser);
@@ -696,8 +651,8 @@
         btn.innerText = 'Disconnect Flickr';
       } else {
         statusEl.className = 'status-indicator offline';
-        statusEl.innerHTML = '🔴 Flickr: Public Feed';
-        btn.innerText = 'Connect Flickr';
+        statusEl.innerHTML = '🔴 Flickr: Public Stream';
+        btn.innerText = 'Connect Flickr ID';
       }
     }
 
@@ -739,12 +694,9 @@
 
       const todayStr = new Date().toISOString().split('T')[0];
       const countToday = vocabData.filter(item => {
-        if (item.addedAt) {
-          return item.addedAt === todayStr;
-        }
+        if (item.addedAt) return item.addedAt === todayStr;
         if (typeof item.id === 'number' && item.id > 1000000000000) {
-          const itemDate = new Date(item.id).toISOString().split('T')[0];
-          return itemDate === todayStr;
+          return new Date(item.id).toISOString().split('T')[0] === todayStr;
         }
         return false;
       }).length;
@@ -760,123 +712,74 @@
       return rawUrl;
     }
 
-    /* --- CƠ CHẾ NÂNG CẤP LẤY 5 ẢNH TỪ FLICKR KHÔNG BỊ CHẶN CORS --- */
-    async function fetchRandomFlickrPhotos() {
-      let photos = [];
-
-      // Phương án 1: Gọi REST API chính thức
-      try {
-        let userId = flickrUser;
-        if (userId && !userId.includes('@N')) {
-          try {
-            const userLookup = await fetch(`https://www.flickr.com/services/rest/?method=flickr.people.findByUsername&api_key=${FLICKR_API_KEY}&username=${encodeURIComponent(userId)}&format=json&nojsoncallback=1`);
-            const userData = await userLookup.json();
-            if (userData.user && userData.user.nsid) userId = userData.user.nsid;
-          } catch(e) {}
+    /* --- GIẢI PHÁP TRIỆT ĐỂ: FLICKR DYNAMIC JSONP INJECTION (BYPASS CORS 100%) --- */
+    function fetchFlickrViaJSONP() {
+      return new Promise((resolve) => {
+        const callbackName = 'jsonp_flickr_cb_' + Math.round(Math.random() * 1000000);
+        let url = `https://www.flickr.com/services/feeds/photos_public.gne?format=json&jsoncallback=${callbackName}`;
+        if (flickrUser) {
+          url += `&id=${encodeURIComponent(flickrUser)}`;
         }
 
-        let apiUrl = userId 
-          ? `https://www.flickr.com/services/rest/?method=flickr.people.getPublicPhotos&api_key=${FLICKR_API_KEY}&user_id=${encodeURIComponent(userId)}&extras=description,owner_name,date_taken,url_m,url_l,url_o&per_page=40&format=json&nojsoncallback=1`
-          : `https://www.flickr.com/services/rest/?method=flickr.photos.getRecent&api_key=${FLICKR_API_KEY}&extras=description,owner_name,date_taken,url_m,url_l,url_o&per_page=40&format=json&nojsoncallback=1`;
+        const script = document.createElement('script');
+        script.src = url;
 
-        const res = await fetch(apiUrl);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.photos && data.photos.photo && data.photos.photo.length > 0) {
-            const shuffled = [...data.photos.photo].sort(() => 0.5 - Math.random()).slice(0, 5);
-            photos = await Promise.all(shuffled.map(async (photo) => {
-              let exifInfo = { camera: '', lens: '', aperture: '', shutterSpeed: '', iso: '' };
-              try {
-                const exifRes = await fetch(`https://www.flickr.com/services/rest/?method=flickr.photos.getExif&api_key=${FLICKR_API_KEY}&photo_id=${photo.id}&format=json&nojsoncallback=1`);
-                if (exifRes.ok) {
-                  const exifData = await exifRes.json();
-                  if (exifData.photo && exifData.photo.exif) {
-                    const exifs = exifData.photo.exif;
-                    const getVal = (tag) => {
-                      const f = exifs.find(e => e.tag === tag || e.label === tag);
-                      return f ? (f.raw ? f.raw._content : '') : '';
-                    };
-                    exifInfo.camera = exifData.photo.camera || getVal('Model');
-                    exifInfo.lens = getVal('Lens') || getVal('LensModel');
-                    exifInfo.aperture = getVal('FNumber') ? `f/${getVal('FNumber')}` : '';
-                    exifInfo.shutterSpeed = getVal('ExposureTime') ? `${getVal('ExposureTime')}s` : '';
-                    exifInfo.iso = getVal('ISO') ? `ISO ${getVal('ISO')}` : '';
-                  }
-                }
-              } catch(e) {}
+        // Xử lý Timeout nếu không phản hồi
+        const timeout = setTimeout(() => {
+          delete window[callbackName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+          resolve([]);
+        }, 6000);
 
-              const imgUrl = photo.url_l || photo.url_m || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
-              const cleanCap = photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '') : 'Flickr Photo Stream';
+        window[callbackName] = (data) => {
+          clearTimeout(timeout);
+          delete window[callbackName];
+          if (script.parentNode) script.parentNode.removeChild(script);
 
+          if (data && data.items && data.items.length > 0) {
+            const shuffled = [...data.items].sort(() => 0.5 - Math.random()).slice(0, 5);
+            const photos = shuffled.map(item => {
+              const imgUrl = item.media ? item.media.m.replace('_m.', '_b.') : item.link;
+              const cleanCap = item.description ? item.description.replace(/<[^>]*>?/gm, '').trim() : '';
               return {
-                source: 'Flickr Photostream',
-                title: photo.title || 'Untitled Flickr Photo',
+                source: flickrUser ? 'Flickr User Photostream' : 'Flickr Public Feed',
+                title: item.title || 'Flickr Photo',
                 imgUrl: imgUrl,
-                hdUrl: photo.url_o || photo.url_l || imgUrl,
-                caption: cleanCap,
-                author: photo.ownername || 'Flickr Photographer',
+                hdUrl: imgUrl,
+                caption: cleanCap || 'Public photo stream from Flickr',
+                author: item.author ? item.author.replace(/nobody@flickr\.com \("(.*)"\)/, '$1') : 'Flickr Photographer',
                 comments: '',
-                takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
-                exif: exifInfo
+                takenDate: item.date_taken ? item.date_taken.split('T')[0] : '',
+                exif: {}
               };
-            }));
+            });
+            resolve(photos);
+          } else {
+            resolve([]);
           }
-        }
-      } catch (err) {
-        console.warn("REST API bị hạn chế, đang sử dụng Public Feeds dự phòng...");
-      }
+        };
 
-      // Phương án 2: Sử dụng CORS Proxy & Flickr Public Feed Dự phòng nếu REST API trả về rỗng
-      if (photos.length === 0) {
-        try {
-          const feedUrl = flickrUser 
-            ? `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.flickr.com/services/feeds/photos_public.gne?id=${flickrUser}&format=json&nojsoncallback=1`)}`
-            : `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1`)}`;
-          
-          const res = await fetch(feedUrl);
-          if (res.ok) {
-            const feedData = await res.json();
-            if (feedData && feedData.items && feedData.items.length > 0) {
-              const shuffled = [...feedData.items].sort(() => 0.5 - Math.random()).slice(0, 5);
-              photos = shuffled.map(item => {
-                const imgUrl = item.media ? item.media.m.replace('_m.', '_b.') : item.link;
-                const cleanCap = item.description ? item.description.replace(/<[^>]*>?/gm, '').trim() : '';
-                return {
-                  source: 'Flickr Public Feed',
-                  title: item.title || 'Flickr Photo',
-                  imgUrl: imgUrl,
-                  hdUrl: imgUrl,
-                  caption: cleanCap || 'Public photo stream from Flickr',
-                  author: item.author ? item.author.replace(/nobody@flickr\.com \("(.*)"\)/, '$1') : 'Flickr User',
-                  comments: '',
-                  takenDate: item.date_taken ? item.date_taken.split('T')[0] : '',
-                  exif: {}
-                };
-              });
-            }
-          }
-        } catch(e) {
-          console.error("Lỗi tải Flickr Public Feed:", e);
-        }
-      }
+        script.onerror = () => {
+          clearTimeout(timeout);
+          delete window[callbackName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+          resolve([]);
+        };
 
-      return photos;
+        document.head.appendChild(script);
+      });
     }
 
     async function loadDailyWidget() {
       photoFeed = [];
 
+      // 1. Tải ảnh NASA APOD
       try {
         let nasaData = null;
-
         try {
           const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-          if (nasaRes.ok) {
-            nasaData = await nasaRes.json();
-          }
-        } catch (err) {
-          console.warn('API NASA chính quá tải, chuyển dự phòng APOD JSON Mirror...');
-        }
+          if (nasaRes.ok) nasaData = await nasaRes.json();
+        } catch (err) {}
 
         if (!nasaData) {
           const fallbackRes = await fetch('https://raw.githubusercontent.com/nasa/apod-api/master/data.json');
@@ -918,11 +821,11 @@
           }
         }
       } catch (e) {
-        console.error('Lỗi tải ảnh NASA APOD:', e);
+        console.error('Lỗi tải NASA APOD:', e);
       }
 
-      // Tải ngẫu nhiên 5 ảnh từ Flickr Photostream
-      const flickrPhotos = await fetchRandomFlickrPhotos();
+      // 2. Tải 5 ảnh ngẫu nhiên từ Flickr bằng JSONP
+      const flickrPhotos = await fetchFlickrViaJSONP();
       if (flickrPhotos.length > 0) {
         photoFeed = photoFeed.concat(flickrPhotos);
       }
@@ -968,7 +871,6 @@
       renderDailyWidget();
     }
 
-    // --- POPUP VIEWER PHÓNG TO ẢNH FULL SCREEN ---
     function openPhotoModal(index) {
       if (!photoFeed || photoFeed.length === 0) return;
       currentPhotoIndex = index;
@@ -1051,7 +953,6 @@
       flashcardDeck = [...newest10, ...random10];
     }
 
-    // --- DRIVE SYNC LOGIC ---
     async function syncFromDrive() {
       if (typeof gapi === 'undefined' || !gapi.client || !gapi.client.drive) return;
       try {
@@ -1122,7 +1023,6 @@
       });
     }
 
-    // --- UI ACTIONS & RENDERERS ---
     function renderFlashcard() {
       const card = document.getElementById('flashcard');
       card.classList.remove('flipped');
