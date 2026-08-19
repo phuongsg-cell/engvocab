@@ -548,6 +548,10 @@
     const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = 'eng_vocab_data.json';
 
+    /* --- CẤU HÌNH API KEYS --- */
+    // Nhập Gemini API Key của bạn vào đây (Lấy từ Google AI Studio)
+    const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+
     /* --- CẤU HÌNH FLICKR REST API & AUTH --- */
     const FLICKR_API_KEY = '1e64b7815e8e1f2c1a16495606988bf6';
     let flickrUser = localStorage.getItem('flickr_user') || '';
@@ -798,7 +802,7 @@
             author: photo.ownername || 'Flickr Photographer',
             takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
             exif: exifData,
-            aiDescription: null // Cache AI description khi đã gọi
+            aiDescription: null
           };
         }));
 
@@ -837,26 +841,44 @@
       }
     }
 
-    /* --- HAM GOI GEMINI API PHAN TICH HINH ANH --- */
+    /* --- HÀM GỌI GEMINI API PHÂN TÍCH HÌNH ẢNH --- */
     async function generateAiImageDescription(imageUrl) {
+      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+        return "⚠️ Vui lòng cung cấp Gemini API Key trong file code.";
+      }
+
       try {
-        // Chuyển hình ảnh sang Base64
-        const imgBlob = await fetch(imageUrl).then(r => r.blob());
-        const base64Data = await new Promise((resolve) => {
+        // Tải hình ảnh & chuyển sang Base64
+        const responseImage = await fetch(imageUrl);
+        const imgBlob = await responseImage.blob();
+        
+        const base64Data = await new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result.split(',')[1]);
+          reader.onloadend = () => {
+            const result = reader.result;
+            if (typeof result === 'string') {
+              resolve(result.split(',')[1]);
+            } else {
+              reject(new Error('Chuyển đổi dữ liệu ảnh thất bại.'));
+            }
+          };
+          reader.onerror = reject;
           reader.readAsDataURL(imgBlob);
         });
 
-        const prompt = "Describe this image in detail using a formal tone. The language level must be clear B1 English suitable for intermediate learners. Do NOT repeat or copy any existing caption. Focus strictly on the visual elements present in the photograph.";
+        const promptText = "Describe this image in detail using a formal tone. The language level must be clear B1 English suitable for intermediate learners. Do NOT repeat or copy any existing caption. Focus strictly on the visual elements present in the photograph.";
 
-        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY, {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+        const apiResponse = await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json' 
+          },
           body: JSON.stringify({
             contents: [{
               parts: [
-                { text: prompt },
+                { text: promptText },
                 {
                   inline_data: {
                     mime_type: imgBlob.type || "image/jpeg",
@@ -868,14 +890,21 @@
           })
         });
 
-        const data = await response.json();
-        if (data.candidates && data.candidates[0].content.parts[0].text) {
+        const data = await apiResponse.json();
+        
+        if (data.error) {
+          console.error("Gemini API Error Detail:", data.error);
+          return `⚠️ Lỗi API (${data.error.code}): ${data.error.message}`;
+        }
+
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
           return data.candidates[0].content.parts[0].text.trim();
         }
-        return "Unable to generate AI description for this image.";
+
+        return "Không thể tạo mô tả cho hình ảnh này.";
       } catch (error) {
-        console.error("Gemini API Error:", error);
-        return "An error occurred while generating the AI description.";
+        console.error("Gemini API Fetch Exception:", error);
+        return "Xảy ra lỗi kết nối khi gọi AI (Có thể do CORS hoặc mất kết nối).";
       }
     }
 
@@ -924,7 +953,6 @@
         </div>
       `;
 
-      // Tạo AI Description nếu chưa được lưu vết
       if (!item.aiDescription) {
         item.aiDescription = await generateAiImageDescription(item.imgUrl);
       }
