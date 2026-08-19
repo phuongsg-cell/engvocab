@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocabulary Flashcard</title>
+  <title>Vocabulary Flashcard & Flickr Random EXIF</title>
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -369,7 +369,7 @@
       font-size: 0.9rem;
       border-top: 1px solid #334155;
       display: none;
-      max-height: 35vh;
+      max-height: 38vh;
     }
     .modal-details.show { display: block; }
     .modal-details h3 { font-size: 1.1rem; color: #38bdf8; margin-bottom: 6px; }
@@ -413,7 +413,7 @@
     </div>
     
     <div class="status-group">
-      <div id="flickr-status" class="status-indicator offline">🔴 Flickr: Public Stream</div>
+      <div id="flickr-status" class="status-indicator offline">🔴 Flickr: Connecting...</div>
       <button id="flickr-auth-btn" class="btn btn-flickr" onclick="handleFlickrAuthClick()">Connect Flickr ID</button>
     </div>
   </div>
@@ -437,7 +437,7 @@
       <button class="btn" onclick="handleAuthClick()">Sign-in with Google</button>
     </div>
 
-    <h2>📰 Daily Knowledge & Flickr Photostream</h2>
+    <h2>📰 Random Photostream & Flickr Metadata</h2>
     <div id="daily-widget-content">
       <p style="color: var(--subtext); text-align: center;">Loading photos & Flickr metadata...</p>
     </div>
@@ -486,6 +486,7 @@
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
+  <!-- MODAL BÀO CHẾ METADATA / EXIF -->
   <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
@@ -498,7 +499,7 @@
 
       <div class="modal-toolbar">
         <span id="modal-title-bar" style="font-weight: 600; font-size: 0.95rem; color: #e2e8f0;">Photo View</span>
-        <span id="modal-photo-counter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">1 / 1</span>
+        <span id="modal-photo-counter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">1 / 5</span>
         <button class="btn" style="padding: 6px 12px; font-size: 0.82rem; background-color: #334155;" onclick="toggleMetadata()">
           ℹ️ <span id="meta-toggle-btn-text">Hiện Metadata / EXIF</span>
         </button>
@@ -517,6 +518,8 @@
     const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = 'eng_vocab_data.json';
 
+    /* --- CẤU HÌNH FLICKR REST API & AUTH --- */
+    const FLICKR_API_KEY = '1e64b7815e8e1f2c1a16495606988bf6';
     let flickrUser = localStorage.getItem('flickr_user') || '';
 
     let tokenClient;
@@ -537,6 +540,7 @@
 
     let photoFeed = [];
     let currentPhotoIndex = 0;
+    let autoRefreshTimer = null;
 
     window.onload = () => {
       initGapi();
@@ -547,6 +551,12 @@
       renderVocabList();
       updateStats();
       updateStatus(false);
+
+      // Tự động tải lại 5 ảnh ngẫu nhiên mới mỗi 15 phút (15 * 60 * 1000 = 900000 ms)
+      autoRefreshTimer = setInterval(() => {
+        console.log('🔄 Đã qua 15 phút: Tự động đổi 5 ảnh ngẫu nhiên mới...');
+        loadDailyWidget();
+      }, 900000);
 
       document.addEventListener('keydown', (e) => {
         const modal = document.getElementById('photo-modal');
@@ -623,7 +633,7 @@
 
     function handleFlickrAuthClick() {
       if (flickrUser) {
-        if (confirm('Ngắt kết nối với Flickr hiện tại?')) {
+        if (confirm('Ngắt kết nối với Flickr ID hiện tại?')) {
           localStorage.removeItem('flickr_user');
           flickrUser = '';
           updateFlickrStatus();
@@ -632,7 +642,7 @@
         return;
       }
 
-      const input = prompt('Nhập Flickr ID hoặc Username của bạn (VD: 12345678@N00 hoặc username):');
+      const input = prompt('Nhập Flickr User ID / NSID của bạn (VD: 12345678@N00 hoặc username):');
       if (input && input.trim()) {
         flickrUser = input.trim();
         localStorage.setItem('flickr_user', flickrUser);
@@ -647,11 +657,11 @@
 
       if (flickrUser) {
         statusEl.className = 'status-indicator online';
-        statusEl.innerHTML = '🟢 Flickr: Connected';
+        statusEl.innerHTML = `🟢 Flickr Stream (${flickrUser})`;
         btn.innerText = 'Disconnect Flickr';
       } else {
         statusEl.className = 'status-indicator offline';
-        statusEl.innerHTML = '🔴 Flickr: Public Stream';
+        statusEl.innerHTML = '🔴 Flickr: Global Stream';
         btn.innerText = 'Connect Flickr ID';
       }
     }
@@ -704,130 +714,111 @@
       todayEl.innerText = countToday;
     }
 
-    function getSafeNasaImageUrl(rawUrl) {
-      if (!rawUrl) return '';
-      if (rawUrl.includes('apod.nasa.gov')) {
-        return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&output=jpg&q=85`;
-      }
-      return rawUrl;
-    }
+    /* --- BÀO CHẾ FLICKR REST ENGINE (RANDOM 5 ÁNH TOÀN BỘ PHOTOSTREAM + EXIF BÓC TÁCH) --- */
+    async function fetchRandomFlickrPhotos(count = 5) {
+      try {
+        let targetNsId = flickrUser;
 
-    /* --- GIẢI PHÁP TRIỆT ĐỂ: FLICKR DYNAMIC JSONP INJECTION (BYPASS CORS 100%) --- */
-    function fetchFlickrViaJSONP() {
-      return new Promise((resolve) => {
-        const callbackName = 'jsonp_flickr_cb_' + Math.round(Math.random() * 1000000);
-        let url = `https://www.flickr.com/services/feeds/photos_public.gne?format=json&jsoncallback=${callbackName}`;
-        if (flickrUser) {
-          url += `&id=${encodeURIComponent(flickrUser)}`;
+        // Nếu nhập username thay vì NSID, tìm NSID chuẩn
+        if (targetNsId && !targetNsId.includes('@')) {
+          const userLookupUrl = `https://api.flickr.com/services/rest/?method=flickr.people.findByUsername&api_key=${FLICKR_API_KEY}&username=${encodeURIComponent(targetNsId)}&format=json&nojsoncallback=1`;
+          const lookupRes = await fetch(userLookupUrl).then(r => r.json());
+          if (lookupRes.stat === 'ok' && lookupRes.user) {
+            targetNsId = lookupRes.user.nsid;
+          }
         }
 
-        const script = document.createElement('script');
-        script.src = url;
+        // Lấy tổng số trang và tổng số ảnh từ toàn bộ Photostream
+        let searchUrl = `https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=${FLICKR_API_KEY}&per_page=100&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
+        if (targetNsId) searchUrl += `&user_id=${encodeURIComponent(targetNsId)}`;
 
-        // Xử lý Timeout nếu không phản hồi
-        const timeout = setTimeout(() => {
-          delete window[callbackName];
-          if (script.parentNode) script.parentNode.removeChild(script);
-          resolve([]);
-        }, 6000);
+        const initRes = await fetch(searchUrl).then(r => r.json());
+        if (!initRes.photos || initRes.photos.photo.length === 0) return [];
 
-        window[callbackName] = (data) => {
-          clearTimeout(timeout);
-          delete window[callbackName];
-          if (script.parentNode) script.parentNode.removeChild(script);
+        const totalPhotos = parseInt(initRes.photos.total, 10);
+        let selectedPhotos = [];
 
-          if (data && data.items && data.items.length > 0) {
-            const shuffled = [...data.items].sort(() => 0.5 - Math.random()).slice(0, 5);
-            const photos = shuffled.map(item => {
-              const imgUrl = item.media ? item.media.m.replace('_m.', '_b.') : item.link;
-              const cleanCap = item.description ? item.description.replace(/<[^>]*>?/gm, '').trim() : '';
-              return {
-                source: flickrUser ? 'Flickr User Photostream' : 'Flickr Public Feed',
-                title: item.title || 'Flickr Photo',
-                imgUrl: imgUrl,
-                hdUrl: imgUrl,
-                caption: cleanCap || 'Public photo stream from Flickr',
-                author: item.author ? item.author.replace(/nobody@flickr\.com \("(.*)"\)/, '$1') : 'Flickr Photographer',
-                comments: '',
-                takenDate: item.date_taken ? item.date_taken.split('T')[0] : '',
-                exif: {}
-              };
-            });
-            resolve(photos);
-          } else {
-            resolve([]);
+        if (totalPhotos <= count) {
+          selectedPhotos = initRes.photos.photo;
+        } else {
+          let randomIndexes = new Set();
+          while (randomIndexes.size < count) {
+            randomIndexes.add(Math.floor(Math.random() * totalPhotos));
           }
-        };
 
-        script.onerror = () => {
-          clearTimeout(timeout);
-          delete window[callbackName];
-          if (script.parentNode) script.parentNode.removeChild(script);
-          resolve([]);
-        };
+          // Lấy ảnh ngẫu nhiên từ toàn bộ kho
+          for (let index of randomIndexes) {
+            const page = Math.floor(index / 100) + 1;
+            const itemIndex = index % 100;
+            const pageUrl = `${searchUrl}&page=${page}`;
+            const pageRes = await fetch(pageUrl).then(r => r.json());
+            if (pageRes.photos && pageRes.photos.photo[itemIndex]) {
+              selectedPhotos.push(pageRes.photos.photo[itemIndex]);
+            }
+          }
+        }
 
-        document.head.appendChild(script);
-      });
+        // Trích xuất EXIF / Metadata từng ảnh
+        const formattedPhotos = await Promise.all(selectedPhotos.map(async (photo) => {
+          const imgUrl = photo.url_l || photo.url_o || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
+          const exifData = await fetchPhotoExif(photo.id);
+
+          return {
+            source: targetNsId ? 'Flickr Photostream (Random)' : 'Flickr Global (Random)',
+            title: photo.title || 'Untitled Photo',
+            imgUrl: imgUrl,
+            hdUrl: photo.url_o || imgUrl,
+            caption: photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '').trim() : 'Không có mô tả',
+            author: photo.ownername || 'Flickr Photographer',
+            takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
+            exif: exifData
+          };
+        }));
+
+        return formattedPhotos;
+      } catch (err) {
+        console.error('Lỗi khi tải REST API Flickr:', err);
+        return [];
+      }
+    }
+
+    async function fetchPhotoExif(photoId) {
+      try {
+        const url = `https://api.flickr.com/services/rest/?method=flickr.photos.getExif&api_key=${FLICKR_API_KEY}&photo_id=${photoId}&format=json&nojsoncallback=1`;
+        const res = await fetch(url).then(r => r.json());
+        
+        let exifParsed = {};
+        if (res.stat === 'ok' && res.photo && res.photo.exif) {
+          const exifArr = res.photo.exif;
+          
+          const findExif = (tag) => {
+            const obj = exifArr.find(item => item.tag.toLowerCase() === tag.toLowerCase() || item.label.toLowerCase() === tag.toLowerCase());
+            return obj ? (obj.raw._content || obj.clean._content) : '';
+          };
+
+          exifParsed = {
+            camera: res.photo.camera || findExif('Model') || findExif('Make'),
+            lens: findExif('Lens') || findExif('LensModel') || findExif('LensInfo'),
+            aperture: findExif('FNumber') || findExif('Aperture'),
+            shutterSpeed: findExif('ExposureTime') || findExif('ShutterSpeedValue'),
+            iso: findExif('ISO') || findExif('ISOSpeedRatings')
+          };
+        }
+        return exifParsed;
+      } catch (e) {
+        return {};
+      }
     }
 
     async function loadDailyWidget() {
-      photoFeed = [];
+      const widgetContainer = document.getElementById('daily-widget-content');
+      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang bốc thăm 5 ảnh ngẫu nhiên & bóc tách Metadata / EXIF...</p>`;
 
-      // 1. Tải ảnh NASA APOD
-      try {
-        let nasaData = null;
-        try {
-          const nasaRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-          if (nasaRes.ok) nasaData = await nasaRes.json();
-        } catch (err) {}
+      photoFeed = await fetchRandomFlickrPhotos(5);
 
-        if (!nasaData) {
-          const fallbackRes = await fetch('https://raw.githubusercontent.com/nasa/apod-api/master/data.json');
-          if (fallbackRes.ok) {
-            const list = await fallbackRes.json();
-            nasaData = list[list.length - 1];
-          }
-        }
-
-        if (nasaData) {
-          let rawUrl = nasaData.url || nasaData.hdurl;
-          let hdUrl = nasaData.hdurl || nasaData.url;
-
-          if (nasaData.media_type === 'video' && rawUrl) {
-            const ytMatch = rawUrl.match(/(?:embed\/|v=)([^&?]+)/);
-            if (ytMatch && ytMatch[1]) {
-              rawUrl = `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
-              hdUrl = rawUrl;
-            }
-          }
-
-          if (rawUrl && rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
-          if (hdUrl && hdUrl.startsWith('//')) hdUrl = 'https:' + hdUrl;
-
-          const safeImgUrl = getSafeNasaImageUrl(rawUrl);
-
-          if (safeImgUrl) {
-            photoFeed.push({
-              source: 'NASA Astronomy',
-              title: nasaData.title || 'Astronomy Picture of the Day',
-              imgUrl: safeImgUrl,
-              hdUrl: hdUrl || safeImgUrl,
-              caption: nasaData.explanation || 'Ảnh thiên văn học trong ngày từ NASA Astronomy Picture of the Day.',
-              author: nasaData.copyright ? `© ${nasaData.copyright.trim()}` : 'NASA / APOD',
-              comments: '',
-              takenDate: nasaData.date || new Date().toISOString().split('T')[0],
-              exif: {}
-            });
-          }
-        }
-      } catch (e) {
-        console.error('Lỗi tải NASA APOD:', e);
-      }
-
-      // 2. Tải 5 ảnh ngẫu nhiên từ Flickr bằng JSONP
-      const flickrPhotos = await fetchFlickrViaJSONP();
-      if (flickrPhotos.length > 0) {
-        photoFeed = photoFeed.concat(flickrPhotos);
+      if (!photoFeed || photoFeed.length === 0) {
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh nào trên Flickr.</p>`;
+        return;
       }
 
       currentPhotoIndex = 0;
@@ -846,13 +837,13 @@
       widgetContainer.innerHTML = `
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click to zoom in" />
+          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click để phóng to & xem EXIF" />
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
-          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom Photo</button>
+          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom & EXIF</button>
           <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
         </div>
@@ -901,18 +892,24 @@
         }
       };
 
-      addExifItem('Author / Artist', item.author);
-      addExifItem('Taken Date', item.takenDate);
+      // TRÍCH XUẤT ĐẦY ĐỦ METADATA YÊU CẦU: Title, Caption, Ngày chụp, Tác giả, Máy ảnh, Lens, Khẩu độ, Tốc độ, ISO
+      addExifItem('Tên ảnh (Title)', item.title, true);
+      addExifItem('Tác giả (Author)', item.author);
+      addExifItem('Ngày chụp (Taken Date)', item.takenDate);
+
       if (item.exif) {
-        addExifItem('Camera', item.exif.camera);
-        addExifItem('Lens', item.exif.lens);
-        addExifItem('Aperture', item.exif.aperture);
-        addExifItem('Shutter Speed', item.exif.shutterSpeed);
+        addExifItem('Máy ảnh (Camera)', item.exif.camera);
+        addExifItem('Ống kính (Lens)', item.exif.lens);
+        addExifItem('Khẩu độ (Aperture)', item.exif.aperture);
+        addExifItem('Tốc độ (Shutter Speed)', item.exif.shutterSpeed);
         addExifItem('ISO', item.exif.iso);
       }
-      addExifItem('Comments', item.comments, true);
 
-      exifContainer.style.display = hasExifData ? 'grid' : 'none';
+      if (!hasExifData) {
+        exifContainer.innerHTML = `<div class="exif-item full-width">Không tìm thấy thông số EXIF công khai cho bức ảnh này.</div>`;
+      }
+
+      exifContainer.style.display = 'grid';
       renderDailyWidget();
     }
 
