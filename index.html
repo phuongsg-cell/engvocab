@@ -35,10 +35,7 @@
       margin: 0 auto;
     }
 
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
+    .header { text-align: center; margin-bottom: 20px; }
     .header h1 { color: var(--primary); font-size: 1.8rem; margin-bottom: 4px; }
     .header p { color: var(--subtext); font-size: 0.95rem; }
 
@@ -55,11 +52,7 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.04);
       border: 1px solid var(--border);
     }
-    .status-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .status-group { display: flex; align-items: center; gap: 10px; }
     .status-indicator { font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
     .status-indicator.online { color: var(--success); }
     .status-indicator.offline { color: var(--danger); }
@@ -78,15 +71,8 @@
       text-align: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--primary);
-    }
-    .stat-label {
-      font-size: 0.85rem;
-      color: var(--subtext);
-    }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .stat-label { font-size: 0.85rem; color: var(--subtext); }
 
     .card {
       background: var(--card);
@@ -109,10 +95,7 @@
       border-radius: 8px;
       font-size: 0.95rem;
     }
-    input[type="text"]:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
+    input[type="text"]:focus { outline: none; border-color: var(--primary); }
     
     .btn {
       background-color: var(--primary);
@@ -187,67 +170,7 @@
       transition: background 0.2s, color 0.2s;
     }
     .icon-btn:hover { background: #e2e8f0; }
-    .icon-btn.delete-btn:hover {
-      background: #fee2e2;
-      border-color: #fca5a5;
-      color: var(--danger);
-    }
-
-    .widget-img-container {
-      position: relative;
-      display: block;
-      overflow: hidden;
-      border-radius: 8px;
-      background: #0f172a;
-      min-height: 250px;
-    }
-    .widget-img {
-      width: 100%;
-      max-height: 380px;
-      object-fit: cover;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      transition: transform 0.2s;
-      display: block;
-    }
-    .widget-img:hover { transform: scale(1.01); }
-    .widget-source-badge {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(15, 23, 42, 0.85);
-      color: white;
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 4px 8px;
-      border-radius: 4px;
-      backdrop-filter: blur(4px);
-      z-index: 2;
-    }
-    .widget-caption {
-      font-size: 0.9rem;
-      color: #334155;
-      line-height: 1.5;
-      background: #f1f5f9;
-      padding: 12px;
-      border-radius: 8px;
-      margin-top: 8px;
-      max-height: 120px;
-      overflow-y: auto;
-    }
-    .widget-title {
-      font-weight: 700;
-      font-size: 1.05rem;
-      margin-bottom: 4px;
-      color: var(--primary);
-    }
-    .widget-controls {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 10px;
-    }
+    .icon-btn.delete-btn:hover { background: #fee2e2; border-color: #fca5a5; color: var(--danger); }
 
     .gallery-locked-overlay {
       position: absolute;
@@ -343,10 +266,7 @@
       transition: background 0.2s, transform 0.2s;
       backdrop-filter: blur(4px);
     }
-    .modal-nav-btn:hover {
-      background: rgba(37, 99, 235, 0.9);
-      transform: translateY(-50%) scale(1.08);
-    }
+    .modal-nav-btn:hover { background: rgba(37, 99, 235, 0.9); transform: translateY(-50%) scale(1.08); }
     .modal-nav-btn.prev { left: 16px; }
     .modal-nav-btn.next { right: 16px; }
     
@@ -482,7 +402,7 @@
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
-  <!-- MODAL METADATA -->
+  <!-- MODAL VIEW PHOTO -->
   <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
@@ -517,7 +437,7 @@
     /* --- DANH SÁCH DIRECT LINKS TỪ OPENDRIVE --- */
     const OPENDRIVE_DIRECT_LINKS = [
       'https://od.lk/s/NTIfMTE2MjcwMDYxXzRmYWtQ/20210818%20Dubrovnik%20Croatia.jpg',
-      // Thêm các link dạng Direct Links (od.lk/s/...) của bạn vào mảng này
+      // Dán bổ sung danh sách link direct (od.lk/s/...) của bạn vào đây
     ];
 
     let tokenClient;
@@ -712,7 +632,7 @@
 
     async function loadDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
-      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang tải ảnh từ OpenDrive Cloud...</p>`;
+      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang tải 5 ảnh ngẫu nhiên từ OpenDrive Cloud...</p>`;
 
       photoFeed = await fetchOpenDrivePhotos(5);
 
@@ -721,7 +641,6 @@
         return;
       }
 
-      currentPhotoIndex = 0;
       renderDailyWidget();
     }
 
@@ -732,35 +651,22 @@
         return;
       }
 
-      const item = photoFeed[currentPhotoIndex];
-
-      widgetContainer.innerHTML = `
-        <div class="widget-img-container">
-          <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click để phóng to & xem chi tiết" />
+      const galleryHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 12px;">
+          ${photoFeed.map((item, idx) => `
+            <div style="position: relative; border-radius: 8px; overflow: hidden; height: 110px; background: #0f172a; cursor: pointer;" onclick="openPhotoModal(${idx})">
+              <img src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="${escapeHtml(item.title)} - Click xem chi tiết" />
+              <span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.75); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; backdrop-filter: blur(2px);">${idx + 1}/5</span>
+            </div>
+          `).join('')}
         </div>
-        <div class="widget-title">${escapeHtml(item.title)}</div>
-        <div class="widget-caption">${escapeHtml(item.caption)}</div>
-
-        <div class="widget-controls">
-          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
-          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom & Details</button>
-          <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
-          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.85rem; color: var(--subtext);">Đang hiển thị <strong>${photoFeed.length}</strong> ảnh ngẫu nhiên</span>
+          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="loadDailyWidget()">🔄 Lấy 5 ảnh khác</button>
         </div>
       `;
-    }
 
-    function prevWidgetPhoto() {
-      if (photoFeed.length === 0) return;
-      currentPhotoIndex = (currentPhotoIndex - 1 + photoFeed.length) % photoFeed.length;
-      renderDailyWidget();
-    }
-
-    function nextWidgetPhoto() {
-      if (photoFeed.length === 0) return;
-      currentPhotoIndex = (currentPhotoIndex + 1) % photoFeed.length;
-      renderDailyWidget();
+      widgetContainer.innerHTML = galleryHTML;
     }
 
     function openPhotoModal(index) {
