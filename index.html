@@ -700,12 +700,27 @@
       todayEl.innerText = countToday;
     }
 
-    /* --- FLICKR EXPLORE API ENGINE --- */
+    /* --- FLICKR EXPLORE API ENGINE (CÓ PHƯƠNG ÁN FALLBACK & HIỂN THỊ LỖI) --- */
     async function fetchExploreFlickrPhotos(count = 20) {
       try {
-        const exploreUrl = `https://api.flickr.com/services/rest/?method=flickr.explore.getInterestingness&api_key=${FLICKR_API_KEY}&per_page=${count}&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
+        // 1. Gọi API Explore Interestingness
+        let exploreUrl = `https://api.flickr.com/services/rest/?method=flickr.explore.getInterestingness&api_key=${FLICKR_API_KEY}&per_page=${count}&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
 
-        const res = await fetch(exploreUrl).then(r => r.json());
+        let res = await fetch(exploreUrl).then(r => r.json());
+
+        // Nếu API Interestingness lỗi hoặc từ chối Key, thử fallback sang flickr.photos.getRecent
+        if (res.stat === 'fail') {
+          console.warn('Explore API failed:', res.message, '-> Fallback sang getRecent');
+          exploreUrl = `https://api.flickr.com/services/rest/?method=flickr.photos.getRecent&api_key=${FLICKR_API_KEY}&per_page=${count}&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
+          res = await fetch(exploreUrl).then(r => r.json());
+        }
+
+        if (res.stat === 'fail') {
+          console.error('Flickr API Error:', res.message);
+          alert(`Lỗi Flickr API (${res.code}): ${res.message}. Vui lòng cập nhật FLICKR_API_KEY mới.`);
+          return [];
+        }
+
         if (!res.photos || !res.photos.photo || res.photos.photo.length === 0) return [];
 
         const photos = res.photos.photo;
@@ -715,7 +730,7 @@
           const exifData = await fetchPhotoExif(photo.id);
 
           return {
-            source: 'Flickr Explore (Interestingness)',
+            source: 'Flickr Explore',
             title: photo.title || 'Untitled Photo',
             imgUrl: imgUrl,
             hdUrl: photo.url_o || imgUrl,
@@ -835,7 +850,7 @@
       photoFeed = await fetchExploreFlickrPhotos(20);
 
       if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh nào từ Flickr Explore.</p>`;
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh nào từ Flickr Explore. Kiểm tra lại FLICKR_API_KEY.</p>`;
         return;
       }
 
