@@ -841,54 +841,86 @@
       }
     }
 
-    /* --- HÀM GỌI GEMINI API PHÂN TÍCH HÌNH ẢNH --- */
+    /* --- HÀM GỌI GEMINI API PHÂN TÍCH HÌNH ẢNH (ĐÃ BỔ SUNG CÁC BIỆN PHÁP AN TOÀN) --- */
     async function generateAiImageDescription(imageUrl) {
       if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
         return "⚠️ Vui lòng cung cấp Gemini API Key trong file code.";
       }
 
+      const promptText = "Describe this image in detail using a formal tone. The language level must be clear B1 English suitable for intermediate learners. Do NOT repeat or copy any existing caption. Focus strictly on the visual elements present in the photograph.";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+      // Tạo Controller để hủy request nếu xử lý vượt quá 15s
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       try {
-        // Tải hình ảnh & chuyển sang Base64
-        const responseImage = await fetch(imageUrl);
-        const imgBlob = await responseImage.blob();
-        
-        const base64Data = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const result = reader.result;
-            if (typeof result === 'string') {
-              resolve(result.split(',')[1]);
-            } else {
-              reject(new Error('Chuyển đổi dữ liệu ảnh thất bại.'));
-            }
+        let base64Data = null;
+        let mimeType = "image/jpeg";
+
+        // Phương án 1: Cố gắng chuyển đổi ảnh thành Base64 bằng Proxy CORS
+        try {
+          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+          const responseImage = await fetch(proxyUrl, { signal: controller.signal });
+          
+          if (responseImage.ok) {
+            const imgBlob = await responseImage.blob();
+            mimeType = imgBlob.type || "image/jpeg";
+            base64Data = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const result = reader.result;
+                if (typeof result === 'string') {
+                  resolve(result.split(',')[1]);
+                } else {
+                  reject(new Error('Chuyển đổi dữ liệu ảnh thất bại.'));
+                }
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(imgBlob);
+            });
+          }
+        } catch (fetchErr) {
+          console.warn("Không thể chuyển đổi trực tiếp Base64 qua Proxy. Chuyển sang phương án gửi URL.", fetchErr);
+        }
+
+        // Tạo cấu trúc Payload thích hợp
+        let requestBody = {};
+        if (base64Data) {
+          requestBody = {
+            contents: [{
+              parts: [
+                { text: promptText },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data
+                  }
+                }
+              ]
+            }]
           };
-          reader.onerror = reject;
-          reader.readAsDataURL(imgBlob);
-        });
-
-        const promptText = "Describe this image in detail using a formal tone. The language level must be clear B1 English suitable for intermediate learners. Do NOT repeat or copy any existing caption. Focus strictly on the visual elements present in the photograph.";
-
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        } else {
+          // Phương án 2: Gửi URL nếu không thể tải file nhị phân trực tiếp
+          requestBody = {
+            contents: [{
+              parts: [
+                { text: `${promptText}\n\nImage URL: ${imageUrl}` }
+              ]
+            }]
+          };
+        }
 
         const apiResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json' 
           },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: promptText },
-                {
-                  inline_data: {
-                    mime_type: imgBlob.type || "image/jpeg",
-                    data: base64Data
-                  }
-                }
-              ]
-            }]
-          })
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         const data = await apiResponse.json();
         
@@ -903,8 +935,12 @@
 
         return "Không thể tạo mô tả cho hình ảnh này.";
       } catch (error) {
+        clearTimeout(timeoutId);
         console.error("Gemini API Fetch Exception:", error);
-        return "Xảy ra lỗi kết nối khi gọi AI (Có thể do CORS hoặc mất kết nối).";
+        if (error.name === 'AbortError') {
+          return "⚠️ Quá thời gian phản hồi (Timeout). Vui lòng thử lại.";
+        }
+        return "Xảy ra lỗi kết nối khi gọi AI (Vui lòng kiểm tra lại mạng hoặc API Key).";
       }
     }
 
