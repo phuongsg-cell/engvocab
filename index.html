@@ -172,21 +172,6 @@
     .icon-btn:hover { background: #e2e8f0; }
     .icon-btn.delete-btn:hover { background: #fee2e2; border-color: #fca5a5; color: var(--danger); }
 
-    .gallery-locked-overlay {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255, 255, 255, 0.88);
-      backdrop-filter: blur(6px);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-    }
-
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -346,13 +331,6 @@
   </div>
 
   <div class="card" id="gallery-card">
-    <div id="gallery-lock" class="gallery-locked-overlay">
-      <span style="font-size: 2rem; margin-bottom: 8px;">🔒</span>
-      <h3 style="color: var(--text); font-size: 1.1rem; margin-bottom: 4px;">Google Drive Connection Required</h3>
-      <p style="color: var(--subtext); font-size: 0.88rem; margin-bottom: 12px;">Please sign-in to unlock your vocabulary database & OpenDrive photo gallery.</p>
-      <button class="btn" onclick="handleAuthClick()">Sign-in with Google</button>
-    </div>
-
     <h2>☁️ OpenDrive Cloud - 5 Random Photos</h2>
     <div id="daily-widget-content">
       <p style="color: var(--subtext); text-align: center;">Loading photos from OpenDrive...</p>
@@ -409,7 +387,7 @@
       
       <div class="modal-img-container">
         <button class="modal-nav-btn prev" onclick="navigateModalPhoto(-1)" title="Ảnh trước">⬅️</button>
-        <img id="modal-img" src="" alt="Full view" />
+        <img id="modal-img" src="" alt="Full view" referrerpolicy="no-referrer" />
         <button class="modal-nav-btn next" onclick="navigateModalPhoto(1)" title="Ảnh kế tiếp">➡️</button>
       </div>
 
@@ -437,7 +415,7 @@
     /* --- DANH SÁCH DIRECT LINKS TỪ OPENDRIVE --- */
     const OPENDRIVE_DIRECT_LINKS = [
       'https://od.lk/s/NTIfMTE2MjcwMDYxXzRmYWtQ/20210818%20Dubrovnik%20Croatia.jpg',
-      // Dán bổ sung danh sách link direct (od.lk/s/...) của bạn vào đây
+      // Dán thêm danh sách link ảnh OpenDrive của bạn tại đây
     ];
 
     let tokenClient;
@@ -467,6 +445,9 @@
       renderVocabList();
       updateStats();
       updateStatus(false);
+      
+      // Tải 5 ảnh ngẫu nhiên từ OpenDrive ngay khi khởi chạy trang
+      loadDailyWidget();
 
       document.addEventListener('keydown', (e) => {
         const modal = document.getElementById('photo-modal');
@@ -547,27 +528,23 @@
       }
       updateStatus(true);
       await syncFromDrive();
-      await loadDailyWidget();
     }
 
     function updateStatus(isOnline) {
       const statusEl = document.getElementById('status');
       const authBtn = document.getElementById('auth-btn');
       const addBtn = document.getElementById('add-btn');
-      const lockOverlay = document.getElementById('gallery-lock');
 
       if (isOnline) {
         statusEl.className = 'status-indicator online';
         statusEl.innerHTML = '🟢 Drive: Connected';
         authBtn.innerText = 'Sign-out';
         addBtn.disabled = false;
-        if (lockOverlay) lockOverlay.style.display = 'none';
       } else {
         statusEl.className = 'status-indicator offline';
         statusEl.innerHTML = '🔴 Drive: Disconnected';
         authBtn.innerText = 'Sign-in Drive';
         addBtn.disabled = true;
-        if (lockOverlay) lockOverlay.style.display = 'flex';
       }
     }
 
@@ -597,11 +574,20 @@
           return [];
         }
 
-        const uniqueLinks = [...new Set(OPENDRIVE_DIRECT_LINKS)];
-        const shuffled = [...uniqueLinks].sort(() => 0.5 - Math.random());
+        // Tự động chuyển đổi link dạng /s/ thành /d/ (Direct stream URL)
+        const formattedLinks = OPENDRIVE_DIRECT_LINKS.map(link => link.replace('/od.lk/s/', '/od.lk/d/'));
+        const uniqueLinks = [...new Set(formattedLinks)];
+        
+        let pool = [...uniqueLinks];
+        // Tự động nhân bản nếu danh sách chưa có đủ 5 link
+        while (pool.length > 0 && pool.length < count) {
+          pool = pool.concat(uniqueLinks);
+        }
+
+        const shuffled = pool.sort(() => 0.5 - Math.random());
         const selected = shuffled.slice(0, count);
 
-        const formattedPhotos = selected.map((url, index) => {
+        return selected.map((url, index) => {
           const rawName = url.split('/').pop().split('?')[0];
           const decodedName = decodeURIComponent(rawName);
 
@@ -622,8 +608,6 @@
             }
           };
         });
-
-        return formattedPhotos;
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu ảnh OpenDrive:', err);
         return [];
@@ -647,7 +631,7 @@
     function renderDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
       if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">No photos found.</p>`;
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh. Vui lòng kiểm tra mảng OPENDRIVE_DIRECT_LINKS.</p>`;
         return;
       }
 
@@ -655,8 +639,15 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 12px;">
           ${photoFeed.map((item, idx) => `
             <div style="position: relative; border-radius: 8px; overflow: hidden; height: 110px; background: #0f172a; cursor: pointer;" onclick="openPhotoModal(${idx})">
-              <img src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="${escapeHtml(item.title)} - Click xem chi tiết" />
-              <span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.75); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; backdrop-filter: blur(2px);">${idx + 1}/5</span>
+              <img src="${escapeHtml(item.imgUrl)}" 
+                   referrerpolicy="no-referrer"
+                   onerror="this.onerror=null; this.src='https://placehold.co/300x200/0f172a/38bdf8?text=Image+Error';"
+                   alt="${escapeHtml(item.title)}" 
+                   style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s;" 
+                   onmouseover="this.style.transform='scale(1.05)'" 
+                   onmouseout="this.style.transform='scale(1)'" 
+                   title="${escapeHtml(item.title)} - Click xem chi tiết" />
+              <span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.75); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; backdrop-filter: blur(2px);">${idx + 1}/${photoFeed.length}</span>
             </div>
           `).join('')}
         </div>
