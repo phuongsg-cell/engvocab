@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocabulary Flashcard & Flickr Random EXIF</title>
+  <title>Vocabulary Flashcard & Flickr Random EXIF with AI Description</title>
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -14,6 +14,8 @@
       --primary-hover: #1d4ed8;
       --flickr: #ff0084;
       --flickr-hover: #d0006f;
+      --ai-purple: #7c3aed;
+      --ai-hover: #6d28d9;
       --success: #16a34a;
       --danger: #dc2626;
       --bg: #f8fafc;
@@ -135,6 +137,9 @@
     .btn-flickr { background-color: var(--flickr); }
     .btn-flickr:hover { background-color: var(--flickr-hover); }
 
+    .btn-ai { background-color: var(--ai-purple); }
+    .btn-ai:hover { background-color: var(--ai-hover); }
+
     .flashcard {
       width: 100%;
       min-height: 180px;
@@ -239,30 +244,25 @@
       max-height: 120px;
       overflow-y: auto;
     }
-    
-    /* STYLE DÀNH RIÊNG CHO Ô MÔ TẢ AI (B1) */
-    .widget-ai-desc {
-      font-size: 0.9rem;
-      color: #0f172a;
+    .ai-description-box {
+      font-size: 0.92rem;
+      color: #1e1b4b;
       line-height: 1.5;
-      background: #eff6ff;
-      border-left: 4px solid var(--primary);
+      background: #f3e8ff;
+      border: 1px solid #d8b4fe;
       padding: 12px;
-      border-radius: 6px;
+      border-radius: 8px;
       margin-top: 8px;
     }
-    .widget-ai-desc .ai-header {
+    .ai-description-box .ai-title {
       font-weight: 700;
-      font-size: 0.82rem;
-      color: var(--primary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: 0.85rem;
+      color: var(--ai-purple);
       margin-bottom: 4px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
-
     .widget-title {
       font-weight: 700;
       font-size: 1.05rem;
@@ -510,7 +510,7 @@
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
-  <!-- MODAL BÀO CHẾ METADATA / EXIF -->
+  <!-- MODAL METADATA / EXIF -->
   <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
@@ -532,6 +532,12 @@
       <div class="modal-details" id="modal-details-panel">
         <h3 id="modal-title">Photo Title</h3>
         <p id="modal-caption" style="color: #cbd5e1; margin-bottom: 10px;"></p>
+
+        <div class="ai-description-box" style="background: #1e1b4b; border-color: #4c1d95; color: #e0e7ff; margin-bottom: 12px;">
+          <div class="ai-title" style="color: #a78bfa;">🤖 AI Image Description (B1 Level)</div>
+          <div id="modal-ai-desc-content">Đang phân tích hình ảnh...</div>
+        </div>
+
         <div id="modal-exif-container" class="exif-grid"></div>
       </div>
     </div>
@@ -576,7 +582,7 @@
       updateStats();
       updateStatus(false);
 
-      // Tự động tải lại 5 ảnh ngẫu nhiên mới mỗi 15 phút (15 * 60 * 1000 = 900000 ms)
+      // Tự động tải lại 5 ảnh ngẫu nhiên mới mỗi 15 phút
       autoRefreshTimer = setInterval(() => {
         console.log('🔄 Đã qua 15 phút: Tự động đổi 5 ảnh ngẫu nhiên mới...');
         loadDailyWidget();
@@ -738,12 +744,11 @@
       todayEl.innerText = countToday;
     }
 
-    /* --- BÀO CHẾ FLICKR REST ENGINE (RANDOM 5 ÁNH TOÀN BỘ PHOTOSTREAM + EXIF BÓC TÁCH) --- */
+    /* --- FLICKR REST ENGINE --- */
     async function fetchRandomFlickrPhotos(count = 5) {
       try {
         let targetNsId = flickrUser;
 
-        // Nếu nhập username thay vì NSID, tìm NSID chuẩn
         if (targetNsId && !targetNsId.includes('@')) {
           const userLookupUrl = `https://api.flickr.com/services/rest/?method=flickr.people.findByUsername&api_key=${FLICKR_API_KEY}&username=${encodeURIComponent(targetNsId)}&format=json&nojsoncallback=1`;
           const lookupRes = await fetch(userLookupUrl).then(r => r.json());
@@ -752,7 +757,6 @@
           }
         }
 
-        // Lấy tổng số trang và tổng số ảnh từ toàn bộ Photostream
         let searchUrl = `https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=${FLICKR_API_KEY}&per_page=100&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
         if (targetNsId) searchUrl += `&user_id=${encodeURIComponent(targetNsId)}`;
 
@@ -770,7 +774,6 @@
             randomIndexes.add(Math.floor(Math.random() * totalPhotos));
           }
 
-          // Lấy ảnh ngẫu nhiên từ toàn bộ kho
           for (let index of randomIndexes) {
             const page = Math.floor(index / 100) + 1;
             const itemIndex = index % 100;
@@ -782,22 +785,20 @@
           }
         }
 
-        // Trích xuất EXIF / Metadata từng ảnh
         const formattedPhotos = await Promise.all(selectedPhotos.map(async (photo) => {
           const imgUrl = photo.url_l || photo.url_o || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
           const exifData = await fetchPhotoExif(photo.id);
-          const rawCaption = photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '').trim() : '';
 
           return {
             source: targetNsId ? 'Flickr Photostream (Random)' : 'Flickr Global (Random)',
             title: photo.title || 'Untitled Photo',
             imgUrl: imgUrl,
             hdUrl: photo.url_o || imgUrl,
-            caption: rawCaption || 'Không có mô tả',
-            aiDesc: generateFormalB1Description(photo.title, rawCaption, photo.ownername),
+            caption: photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '').trim() : 'Không có mô tả',
             author: photo.ownername || 'Flickr Photographer',
             takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
-            exif: exifData
+            exif: exifData,
+            aiDescription: null // Cache AI description khi đã gọi
           };
         }));
 
@@ -806,24 +807,6 @@
         console.error('Lỗi khi tải REST API Flickr:', err);
         return [];
       }
-    }
-
-    /* TỰ ĐỘNG TẠO MÔ TẢ GIỌNG VĂN FORMAL - B1 LEVEL */
-    function generateFormalB1Description(title, caption, author) {
-      let cleanTitle = title && title !== 'Untitled Photo' ? title.trim() : 'a visual scene';
-      let cleanAuthor = author ? author.trim() : 'the photographer';
-      
-      let baseText = `This photograph, captured by ${cleanAuthor}, presented a clear view entitled "${cleanTitle}". `;
-      
-      if (caption && caption !== 'Không có mô tả' && caption.length > 5) {
-        baseText += `According to the description, the image illustrates ${caption.toLowerCase()}`;
-        if (!caption.endsWith('.')) baseText += '.';
-      } else {
-        baseText += `It depicts a well-composed subject with natural lighting and balanced visual details.`;
-      }
-
-      baseText += ` Overall, the picture conveys a calm atmosphere and provides a realistic perspective for the viewer.`;
-      return baseText;
     }
 
     async function fetchPhotoExif(photoId) {
@@ -854,6 +837,48 @@
       }
     }
 
+    /* --- HAM GOI GEMINI API PHAN TICH HINH ANH --- */
+    async function generateAiImageDescription(imageUrl) {
+      try {
+        // Chuyển hình ảnh sang Base64
+        const imgBlob = await fetch(imageUrl).then(r => r.blob());
+        const base64Data = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result.split(',')[1]);
+          reader.readAsDataURL(imgBlob);
+        });
+
+        const prompt = "Describe this image in detail using a formal tone. The language level must be clear B1 English suitable for intermediate learners. Do NOT repeat or copy any existing caption. Focus strictly on the visual elements present in the photograph.";
+
+        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: imgBlob.type || "image/jpeg",
+                    data: base64Data
+                  }
+                }
+              ]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        if (data.candidates && data.candidates[0].content.parts[0].text) {
+          return data.candidates[0].content.parts[0].text.trim();
+        }
+        return "Unable to generate AI description for this image.";
+      } catch (error) {
+        console.error("Gemini API Error:", error);
+        return "An error occurred while generating the AI description.";
+      }
+    }
+
     async function loadDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
       widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang bốc thăm 5 ảnh ngẫu nhiên & bóc tách Metadata / EXIF...</p>`;
@@ -866,10 +891,10 @@
       }
 
       currentPhotoIndex = 0;
-      renderDailyWidget();
+      await renderDailyWidget();
     }
 
-    function renderDailyWidget() {
+    async function renderDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
       if (!photoFeed || photoFeed.length === 0) {
         widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">No photos found.</p>`;
@@ -886,10 +911,9 @@
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
         
-        <!-- Ô MÔ TẢ DÀNH CHO AI (B1 LEVEL) -->
-        <div class="widget-ai-desc">
-          <div class="ai-header">🤖 AI Image Description (B1 Level)</div>
-          <div>${escapeHtml(item.aiDesc)}</div>
+        <div class="ai-description-box">
+          <div class="ai-title">🤖 AI Image Description (B1 Level - Formal)</div>
+          <div id="widget-ai-desc-text">✨ Generating formal B1 description...</div>
         </div>
 
         <div class="widget-controls">
@@ -899,28 +923,35 @@
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
         </div>
       `;
+
+      // Tạo AI Description nếu chưa được lưu vết
+      if (!item.aiDescription) {
+        item.aiDescription = await generateAiImageDescription(item.imgUrl);
+      }
+      const aiBox = document.getElementById('widget-ai-desc-text');
+      if (aiBox) aiBox.innerText = item.aiDescription;
     }
 
-    function prevWidgetPhoto() {
+    async function prevWidgetPhoto() {
       if (photoFeed.length === 0) return;
       currentPhotoIndex = (currentPhotoIndex - 1 + photoFeed.length) % photoFeed.length;
-      renderDailyWidget();
+      await renderDailyWidget();
     }
 
-    function nextWidgetPhoto() {
+    async function nextWidgetPhoto() {
       if (photoFeed.length === 0) return;
       currentPhotoIndex = (currentPhotoIndex + 1) % photoFeed.length;
-      renderDailyWidget();
+      await renderDailyWidget();
     }
 
-    function openPhotoModal(index) {
+    async function openPhotoModal(index) {
       if (!photoFeed || photoFeed.length === 0) return;
       currentPhotoIndex = index;
-      updateModalContent();
+      await updateModalContent();
       document.getElementById('photo-modal').classList.add('active');
     }
 
-    function updateModalContent() {
+    async function updateModalContent() {
       const item = photoFeed[currentPhotoIndex];
       if (!item) return;
 
@@ -929,6 +960,17 @@
       document.getElementById('modal-photo-counter').innerText = `${currentPhotoIndex + 1} / ${photoFeed.length}`;
       document.getElementById('modal-title').innerText = item.title || 'Untitled Photo';
       document.getElementById('modal-caption').innerText = item.caption || '';
+
+      const modalAiDesc = document.getElementById('modal-ai-desc-content');
+      if (modalAiDesc) {
+        if (item.aiDescription) {
+          modalAiDesc.innerText = item.aiDescription;
+        } else {
+          modalAiDesc.innerText = "✨ Generating formal B1 description...";
+          item.aiDescription = await generateAiImageDescription(item.imgUrl);
+          modalAiDesc.innerText = item.aiDescription;
+        }
+      }
 
       const exifContainer = document.getElementById('modal-exif-container');
       exifContainer.innerHTML = '';
@@ -943,7 +985,6 @@
         }
       };
 
-      // TRÍCH XUẤT ĐẦY ĐỦ METADATA YÊU CẦU: Title, Caption, Ngày chụp, Tác giả, Máy ảnh, Lens, Khẩu độ, Tốc độ, ISO
       addExifItem('Tên ảnh (Title)', item.title, true);
       addExifItem('Tác giả (Author)', item.author);
       addExifItem('Ngày chụp (Taken Date)', item.takenDate);
@@ -961,13 +1002,12 @@
       }
 
       exifContainer.style.display = 'grid';
-      renderDailyWidget();
     }
 
-    function navigateModalPhoto(direction) {
+    async function navigateModalPhoto(direction) {
       if (!photoFeed || photoFeed.length === 0) return;
       currentPhotoIndex = (currentPhotoIndex + direction + photoFeed.length) % photoFeed.length;
-      updateModalContent();
+      await updateModalContent();
     }
 
     function toggleMetadata() {
