@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocabulary Flashcard & Flickr Random EXIF with AI Description</title>
+  <title>Vocabulary Flashcard & Flickr Explore EXIF with AI Description</title>
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -437,8 +437,7 @@
     </div>
     
     <div class="status-group">
-      <div id="flickr-status" class="status-indicator offline">🔴 Flickr: Connecting...</div>
-      <button id="flickr-auth-btn" class="btn btn-flickr" onclick="handleFlickrAuthClick()">Connect Flickr ID</button>
+      <div id="flickr-status" class="status-indicator online">🟢 Flickr Explore</div>
     </div>
   </div>
 
@@ -457,13 +456,13 @@
     <div id="gallery-lock" class="gallery-locked-overlay">
       <span style="font-size: 2rem; margin-bottom: 8px;">🔒</span>
       <h3 style="color: var(--text); font-size: 1.1rem; margin-bottom: 4px;">Google Drive Connection Required</h3>
-      <p style="color: var(--subtext); font-size: 0.88rem; margin-bottom: 12px;">Please sign-in to unlock your vocabulary database & photostream gallery.</p>
+      <p style="color: var(--subtext); font-size: 0.88rem; margin-bottom: 12px;">Please sign-in to unlock your vocabulary database & Explore photo gallery.</p>
       <button class="btn" onclick="handleAuthClick()">Sign-in with Google</button>
     </div>
 
-    <h2>📰 Random Photostream & Flickr Metadata</h2>
+    <h2>🌐 Flickr Explore - 20 Latest Photos & Metadata</h2>
     <div id="daily-widget-content">
-      <p style="color: var(--subtext); text-align: center;">Loading photos & Flickr metadata...</p>
+      <p style="color: var(--subtext); text-align: center;">Loading Flickr Explore photos & metadata...</p>
     </div>
   </div>
 
@@ -523,7 +522,7 @@
 
       <div class="modal-toolbar">
         <span id="modal-title-bar" style="font-weight: 600; font-size: 0.95rem; color: #e2e8f0;">Photo View</span>
-        <span id="modal-photo-counter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">1 / 5</span>
+        <span id="modal-photo-counter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">1 / 20</span>
         <button class="btn" style="padding: 6px 12px; font-size: 0.82rem; background-color: #334155;" onclick="toggleMetadata()">
           ℹ️ <span id="meta-toggle-btn-text">Hiện Metadata / EXIF</span>
         </button>
@@ -549,12 +548,8 @@
     const FILE_NAME = 'eng_vocab_data.json';
 
     /* --- CẤU HÌNH API KEYS --- */
-    // Nhập Gemini API Key của bạn vào đây (Lấy từ Google AI Studio)
-    const GEMINI_API_KEY = 'AQ.Ab8RN6KKLeYfEHp2srIzTS7gcwF6-JTC8tMIlt_IVal1CpjtYw';
-
-    /* --- CẤU HÌNH FLICKR REST API & AUTH --- */
+    const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
     const FLICKR_API_KEY = '1e64b7815e8e1f2c1a16495606988bf6';
-    let flickrUser = localStorage.getItem('flickr_user') || '';
 
     let tokenClient;
     let accessToken = null;
@@ -574,23 +569,15 @@
 
     let photoFeed = [];
     let currentPhotoIndex = 0;
-    let autoRefreshTimer = null;
 
     window.onload = () => {
       initGapi();
       initGis();
-      updateFlickrStatus();
       prepareFlashcardDeck();
       renderFlashcard();
       renderVocabList();
       updateStats();
       updateStatus(false);
-
-      // Tự động tải lại 5 ảnh ngẫu nhiên mới mỗi 15 phút
-      autoRefreshTimer = setInterval(() => {
-        console.log('🔄 Đã qua 15 phút: Tự động đổi 5 ảnh ngẫu nhiên mới...');
-        loadDailyWidget();
-      }, 900000);
 
       document.addEventListener('keydown', (e) => {
         const modal = document.getElementById('photo-modal');
@@ -665,41 +652,6 @@
       tokenClient.requestAccessToken({ prompt: 'select_account' });
     }
 
-    function handleFlickrAuthClick() {
-      if (flickrUser) {
-        if (confirm('Ngắt kết nối với Flickr ID hiện tại?')) {
-          localStorage.removeItem('flickr_user');
-          flickrUser = '';
-          updateFlickrStatus();
-          loadDailyWidget();
-        }
-        return;
-      }
-
-      const input = prompt('Nhập Flickr User ID / NSID của bạn (VD: 12345678@N00 hoặc username):');
-      if (input && input.trim()) {
-        flickrUser = input.trim();
-        localStorage.setItem('flickr_user', flickrUser);
-        updateFlickrStatus();
-        loadDailyWidget();
-      }
-    }
-
-    function updateFlickrStatus() {
-      const statusEl = document.getElementById('flickr-status');
-      const btn = document.getElementById('flickr-auth-btn');
-
-      if (flickrUser) {
-        statusEl.className = 'status-indicator online';
-        statusEl.innerHTML = `🟢 Flickr Stream (${flickrUser})`;
-        btn.innerText = 'Disconnect Flickr';
-      } else {
-        statusEl.className = 'status-indicator offline';
-        statusEl.innerHTML = '🔴 Flickr: Global Stream';
-        btn.innerText = 'Connect Flickr ID';
-      }
-    }
-
     async function onAuthenticated() {
       if (typeof gapi !== 'undefined' && gapi.client) {
         gapi.client.setToken({ access_token: accessToken });
@@ -748,53 +700,22 @@
       todayEl.innerText = countToday;
     }
 
-    /* --- FLICKR REST ENGINE --- */
-    async function fetchRandomFlickrPhotos(count = 5) {
+    /* --- FLICKR EXPLORE API ENGINE --- */
+    async function fetchExploreFlickrPhotos(count = 20) {
       try {
-        let targetNsId = flickrUser;
+        const exploreUrl = `https://api.flickr.com/services/rest/?method=flickr.explore.getInterestingness&api_key=${FLICKR_API_KEY}&per_page=${count}&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
 
-        if (targetNsId && !targetNsId.includes('@')) {
-          const userLookupUrl = `https://api.flickr.com/services/rest/?method=flickr.people.findByUsername&api_key=${FLICKR_API_KEY}&username=${encodeURIComponent(targetNsId)}&format=json&nojsoncallback=1`;
-          const lookupRes = await fetch(userLookupUrl).then(r => r.json());
-          if (lookupRes.stat === 'ok' && lookupRes.user) {
-            targetNsId = lookupRes.user.nsid;
-          }
-        }
+        const res = await fetch(exploreUrl).then(r => r.json());
+        if (!res.photos || !res.photos.photo || res.photos.photo.length === 0) return [];
 
-        let searchUrl = `https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=${FLICKR_API_KEY}&per_page=100&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
-        if (targetNsId) searchUrl += `&user_id=${encodeURIComponent(targetNsId)}`;
+        const photos = res.photos.photo;
 
-        const initRes = await fetch(searchUrl).then(r => r.json());
-        if (!initRes.photos || initRes.photos.photo.length === 0) return [];
-
-        const totalPhotos = parseInt(initRes.photos.total, 10);
-        let selectedPhotos = [];
-
-        if (totalPhotos <= count) {
-          selectedPhotos = initRes.photos.photo;
-        } else {
-          let randomIndexes = new Set();
-          while (randomIndexes.size < count) {
-            randomIndexes.add(Math.floor(Math.random() * totalPhotos));
-          }
-
-          for (let index of randomIndexes) {
-            const page = Math.floor(index / 100) + 1;
-            const itemIndex = index % 100;
-            const pageUrl = `${searchUrl}&page=${page}`;
-            const pageRes = await fetch(pageUrl).then(r => r.json());
-            if (pageRes.photos && pageRes.photos.photo[itemIndex]) {
-              selectedPhotos.push(pageRes.photos.photo[itemIndex]);
-            }
-          }
-        }
-
-        const formattedPhotos = await Promise.all(selectedPhotos.map(async (photo) => {
+        const formattedPhotos = await Promise.all(photos.map(async (photo) => {
           const imgUrl = photo.url_l || photo.url_o || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
           const exifData = await fetchPhotoExif(photo.id);
 
           return {
-            source: targetNsId ? 'Flickr Photostream (Random)' : 'Flickr Global (Random)',
+            source: 'Flickr Explore (Interestingness)',
             title: photo.title || 'Untitled Photo',
             imgUrl: imgUrl,
             hdUrl: photo.url_o || imgUrl,
@@ -808,7 +729,7 @@
 
         return formattedPhotos;
       } catch (err) {
-        console.error('Lỗi khi tải REST API Flickr:', err);
+        console.error('Lỗi khi tải dữ liệu Flickr Explore:', err);
         return [];
       }
     }
@@ -841,86 +762,53 @@
       }
     }
 
-    /* --- HÀM GỌI GEMINI API PHÂN TÍCH HÌNH ẢNH (ĐÃ BỔ SUNG CÁC BIỆN PHÁP AN TOÀN) --- */
+    /* --- GEMINI API PHÂN TÍCH HÌNH ẢNH --- */
     async function generateAiImageDescription(imageUrl) {
-      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'AQ.Ab8RN6KKLeYfEHp2srIzTS7gcwF6-JTC8tMIlt_IVal1CpjtYw') {
+      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
         return "⚠️ Vui lòng cung cấp Gemini API Key trong file code.";
       }
 
-      const promptText = "Describe this image in detail using a formal tone. The language level must be clear B1 English suitable for intermediate learners. Do NOT repeat or copy any existing caption. Focus strictly on the visual elements present in the photograph.";
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-      // Tạo Controller để hủy request nếu xử lý vượt quá 15s
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
       try {
-        let base64Data = null;
-        let mimeType = "image/jpeg";
-
-        // Phương án 1: Cố gắng chuyển đổi ảnh thành Base64 bằng Proxy CORS
-        try {
-          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
-          const responseImage = await fetch(proxyUrl, { signal: controller.signal });
-          
-          if (responseImage.ok) {
-            const imgBlob = await responseImage.blob();
-            mimeType = imgBlob.type || "image/jpeg";
-            base64Data = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                const result = reader.result;
-                if (typeof result === 'string') {
-                  resolve(result.split(',')[1]);
-                } else {
-                  reject(new Error('Chuyển đổi dữ liệu ảnh thất bại.'));
-                }
-              };
-              reader.onerror = reject;
-              reader.readAsDataURL(imgBlob);
-            });
-          }
-        } catch (fetchErr) {
-          console.warn("Không thể chuyển đổi trực tiếp Base64 qua Proxy. Chuyển sang phương án gửi URL.", fetchErr);
-        }
-
-        // Tạo cấu trúc Payload thích hợp
-        let requestBody = {};
-        if (base64Data) {
-          requestBody = {
-            contents: [{
-              parts: [
-                { text: promptText },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Data
-                  }
-                }
-              ]
-            }]
+        const responseImage = await fetch(imageUrl);
+        const imgBlob = await responseImage.blob();
+        
+        const base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result;
+            if (typeof result === 'string') {
+              resolve(result.split(',')[1]);
+            } else {
+              reject(new Error('Chuyển đổi dữ liệu ảnh thất bại.'));
+            }
           };
-        } else {
-          // Phương án 2: Gửi URL nếu không thể tải file nhị phân trực tiếp
-          requestBody = {
-            contents: [{
-              parts: [
-                { text: `${promptText}\n\nImage URL: ${imageUrl}` }
-              ]
-            }]
-          };
-        }
+          reader.onerror = reject;
+          reader.readAsDataURL(imgBlob);
+        });
+
+        const promptText = "Describe this image in detail using a formal tone. The language level must be clear B1 English suitable for intermediate learners. Do NOT repeat or copy any existing caption. Focus strictly on the visual elements present in the photograph.";
+
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
         const apiResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json' 
           },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                {
+                  inline_data: {
+                    mime_type: imgBlob.type || "image/jpeg",
+                    data: base64Data
+                  }
+                }
+              ]
+            }]
+          })
         });
-
-        clearTimeout(timeoutId);
 
         const data = await apiResponse.json();
         
@@ -935,23 +823,19 @@
 
         return "Không thể tạo mô tả cho hình ảnh này.";
       } catch (error) {
-        clearTimeout(timeoutId);
         console.error("Gemini API Fetch Exception:", error);
-        if (error.name === 'AbortError') {
-          return "⚠️ Quá thời gian phản hồi (Timeout). Vui lòng thử lại.";
-        }
-        return "Xảy ra lỗi kết nối khi gọi AI (Vui lòng kiểm tra lại mạng hoặc API Key).";
+        return "Xảy ra lỗi kết nối khi gọi AI (Có thể do CORS hoặc mất kết nối).";
       }
     }
 
     async function loadDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
-      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang bốc thăm 5 ảnh ngẫu nhiên & bóc tách Metadata / EXIF...</p>`;
+      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang tải 20 ảnh mới nhất từ Flickr Explore & bóc tách Metadata / EXIF...</p>`;
 
-      photoFeed = await fetchRandomFlickrPhotos(5);
+      photoFeed = await fetchExploreFlickrPhotos(20);
 
       if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh nào trên Flickr.</p>`;
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh nào từ Flickr Explore.</p>`;
         return;
       }
 
