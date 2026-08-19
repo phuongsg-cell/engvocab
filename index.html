@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocabulary Flashcard & Flickr Explore EXIF with AI Description</title>
+  <title>Vocabulary Flashcard & OpenDrive Cloud Gallery with AI Description</title>
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -12,8 +12,8 @@
     :root {
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
-      --flickr: #ff0084;
-      --flickr-hover: #d0006f;
+      --cloud: #0284c7;
+      --cloud-hover: #0369a1;
       --ai-purple: #7c3aed;
       --ai-hover: #6d28d9;
       --success: #16a34a;
@@ -133,9 +133,6 @@
     }
     .btn:hover { background-color: var(--primary-hover); }
     .btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
-
-    .btn-flickr { background-color: var(--flickr); }
-    .btn-flickr:hover { background-color: var(--flickr-hover); }
 
     .btn-ai { background-color: var(--ai-purple); }
     .btn-ai:hover { background-color: var(--ai-hover); }
@@ -437,7 +434,7 @@
     </div>
     
     <div class="status-group">
-      <div id="flickr-status" class="status-indicator online">🟢 Flickr Explore</div>
+      <div id="cloud-status" class="status-indicator online">🟢 OpenDrive Cloud</div>
     </div>
   </div>
 
@@ -456,13 +453,13 @@
     <div id="gallery-lock" class="gallery-locked-overlay">
       <span style="font-size: 2rem; margin-bottom: 8px;">🔒</span>
       <h3 style="color: var(--text); font-size: 1.1rem; margin-bottom: 4px;">Google Drive Connection Required</h3>
-      <p style="color: var(--subtext); font-size: 0.88rem; margin-bottom: 12px;">Please sign-in to unlock your vocabulary database & Explore photo gallery.</p>
+      <p style="color: var(--subtext); font-size: 0.88rem; margin-bottom: 12px;">Please sign-in to unlock your vocabulary database & OpenDrive photo gallery.</p>
       <button class="btn" onclick="handleAuthClick()">Sign-in with Google</button>
     </div>
 
-    <h2>🌐 Flickr Explore - 20 Latest Photos & Metadata</h2>
+    <h2>☁️ OpenDrive Cloud - 5 Random Photos</h2>
     <div id="daily-widget-content">
-      <p style="color: var(--subtext); text-align: center;">Loading Flickr Explore photos & metadata...</p>
+      <p style="color: var(--subtext); text-align: center;">Loading photos from OpenDrive...</p>
     </div>
   </div>
 
@@ -522,7 +519,7 @@
 
       <div class="modal-toolbar">
         <span id="modal-title-bar" style="font-weight: 600; font-size: 0.95rem; color: #e2e8f0;">Photo View</span>
-        <span id="modal-photo-counter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">1 / 20</span>
+        <span id="modal-photo-counter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">1 / 5</span>
         <button class="btn" style="padding: 6px 12px; font-size: 0.82rem; background-color: #334155;" onclick="toggleMetadata()">
           ℹ️ <span id="meta-toggle-btn-text">Hiện Metadata / EXIF</span>
         </button>
@@ -547,9 +544,11 @@
     const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = 'eng_vocab_data.json';
 
-    /* --- CẤU HÌNH API KEYS --- */
+    /* --- CẤU HÌNH API KEYS & OPENDRIVE --- */
     const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
-    const FLICKR_API_KEY = '1e64b7815e8e1f2c1a16495606988bf6';
+    
+    // Dán link Public Folder của OpenDrive vào đây (Ví dụ: https://www.opendrive.com/files?N1fMTI3NDk0NDVf)
+    const OPENDRIVE_PUBLIC_FOLDER_URL = 'https://od.lk/fl/NTlfNTQ0NjYxOV9oZTNldQ';
 
     let tokenClient;
     let accessToken = null;
@@ -700,80 +699,66 @@
       todayEl.innerText = countToday;
     }
 
-    /* --- FLICKR EXPLORE API ENGINE (CÓ PHƯƠNG ÁN FALLBACK & HIỂN THỊ LỖI) --- */
-    async function fetchExploreFlickrPhotos(count = 20) {
+    /* --- OPENDRIVE PUBLIC FOLDER ENGINE (RỌT 5 ẢNH NGẪU NHIÊN) --- */
+    async function fetchOpenDrivePhotos(count = 5) {
       try {
-        // 1. Gọi API Explore Interestingness
-        let exploreUrl = `https://api.flickr.com/services/rest/?method=flickr.explore.getInterestingness&api_key=${FLICKR_API_KEY}&per_page=${count}&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
-
-        let res = await fetch(exploreUrl).then(r => r.json());
-
-        // Nếu API Interestingness lỗi hoặc từ chối Key, thử fallback sang flickr.photos.getRecent
-        if (res.stat === 'fail') {
-          console.warn('Explore API failed:', res.message, '-> Fallback sang getRecent');
-          exploreUrl = `https://api.flickr.com/services/rest/?method=flickr.photos.getRecent&api_key=${FLICKR_API_KEY}&per_page=${count}&format=json&nojsoncallback=1&extras=description,date_taken,owner_name,url_l,url_o`;
-          res = await fetch(exploreUrl).then(r => r.json());
-        }
-
-        if (res.stat === 'fail') {
-          console.error('Flickr API Error:', res.message);
-          alert(`Lỗi Flickr API (${res.code}): ${res.message}. Vui lòng cập nhật FLICKR_API_KEY mới.`);
+        if (!OPENDRIVE_PUBLIC_FOLDER_URL || OPENDRIVE_PUBLIC_FOLDER_URL.includes('YOUR_FOLDER_ID_HERE')) {
+          console.warn('Chưa cấu hình OPENDRIVE_PUBLIC_FOLDER_URL.');
           return [];
         }
 
-        if (!res.photos || !res.photos.photo || res.photos.photo.length === 0) return [];
+        const folderResponse = await fetch(OPENDRIVE_PUBLIC_FOLDER_URL);
+        const htmlText = await folderResponse.text();
 
-        const photos = res.photos.photo;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+        const links = Array.from(doc.querySelectorAll('a'));
 
-        const formattedPhotos = await Promise.all(photos.map(async (photo) => {
-          const imgUrl = photo.url_l || photo.url_o || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
-          const exifData = await fetchPhotoExif(photo.id);
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        let imageUrls = [];
 
-          return {
-            source: 'Flickr Explore',
-            title: photo.title || 'Untitled Photo',
-            imgUrl: imgUrl,
-            hdUrl: photo.url_o || imgUrl,
-            caption: photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '').trim() : 'Không có mô tả',
-            author: photo.ownername || 'Flickr Photographer',
-            takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
-            exif: exifData,
-            aiDescription: null
-          };
+        links.forEach(link => {
+          const href = link.getAttribute('href');
+          if (href && imageExtensions.some(ext => href.toLowerCase().endsWith(ext))) {
+            const absoluteUrl = new URL(href, OPENDRIVE_PUBLIC_FOLDER_URL).href;
+            const fileName = href.split('/').pop().split('?')[0];
+            imageUrls.push({ url: absoluteUrl, name: decodeURIComponent(fileName) });
+          }
+        });
+
+        // Xóa trùng lặp nếu có
+        imageUrls = imageUrls.filter((item, index, self) =>
+          index === self.findIndex((t) => t.url === item.url)
+        );
+
+        if (imageUrls.length === 0) return [];
+
+        // Xáo trộn mảng ngẫu nhiên (Fisher-Yates Shuffle)
+        const shuffled = [...imageUrls].sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, count);
+
+        const formattedPhotos = selected.map((item, index) => ({
+          source: 'OpenDrive Cloud',
+          title: item.name || `OpenDrive Photo ${index + 1}`,
+          imgUrl: item.url,
+          hdUrl: item.url,
+          caption: `Hình ảnh lưu trữ từ OpenDrive: ${item.name}`,
+          author: 'OpenDrive User',
+          takenDate: new Date().toISOString().split('T')[0],
+          exif: {
+            camera: 'Cloud Storage',
+            lens: 'Direct Stream',
+            aperture: 'N/A',
+            shutterSpeed: 'N/A',
+            iso: 'N/A'
+          },
+          aiDescription: null
         }));
 
         return formattedPhotos;
       } catch (err) {
-        console.error('Lỗi khi tải dữ liệu Flickr Explore:', err);
+        console.error('Lỗi khi tải dữ liệu ảnh từ OpenDrive:', err);
         return [];
-      }
-    }
-
-    async function fetchPhotoExif(photoId) {
-      try {
-        const url = `https://api.flickr.com/services/rest/?method=flickr.photos.getExif&api_key=${FLICKR_API_KEY}&photo_id=${photoId}&format=json&nojsoncallback=1`;
-        const res = await fetch(url).then(r => r.json());
-        
-        let exifParsed = {};
-        if (res.stat === 'ok' && res.photo && res.photo.exif) {
-          const exifArr = res.photo.exif;
-          
-          const findExif = (tag) => {
-            const obj = exifArr.find(item => item.tag.toLowerCase() === tag.toLowerCase() || item.label.toLowerCase() === tag.toLowerCase());
-            return obj ? (obj.raw._content || obj.clean._content) : '';
-          };
-
-          exifParsed = {
-            camera: res.photo.camera || findExif('Model') || findExif('Make'),
-            lens: findExif('Lens') || findExif('LensModel') || findExif('LensInfo'),
-            aperture: findExif('FNumber') || findExif('Aperture'),
-            shutterSpeed: findExif('ExposureTime') || findExif('ShutterSpeedValue'),
-            iso: findExif('ISO') || findExif('ISOSpeedRatings')
-          };
-        }
-        return exifParsed;
-      } catch (e) {
-        return {};
       }
     }
 
@@ -845,12 +830,12 @@
 
     async function loadDailyWidget() {
       const widgetContainer = document.getElementById('daily-widget-content');
-      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang tải 20 ảnh mới nhất từ Flickr Explore & bóc tách Metadata / EXIF...</p>`;
+      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang trích xuất ngẫu nhiên 5 ảnh từ OpenDrive Cloud...</p>`;
 
-      photoFeed = await fetchExploreFlickrPhotos(20);
+      photoFeed = await fetchOpenDrivePhotos(5);
 
       if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh nào từ Flickr Explore. Kiểm tra lại FLICKR_API_KEY.</p>`;
+        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh nào trong thư mục OpenDrive. Vui lòng kiểm tra lại OPENDRIVE_PUBLIC_FOLDER_URL hoặc cấp quyền public cho folder.</p>`;
         return;
       }
 
@@ -870,7 +855,7 @@
       widgetContainer.innerHTML = `
         <div class="widget-img-container">
           <span class="widget-source-badge">${escapeHtml(item.source)}</span>
-          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click để phóng to & xem EXIF" />
+          <img class="widget-img" src="${escapeHtml(item.imgUrl)}" alt="${escapeHtml(item.title)}" onclick="openPhotoModal(${currentPhotoIndex})" title="Click để phóng to & xem chi tiết" />
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
@@ -882,7 +867,7 @@
 
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
-          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom & EXIF</button>
+          <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom & Details</button>
           <span style="font-weight: 600; color: var(--subtext); font-size: 0.85rem;">${currentPhotoIndex + 1} / ${photoFeed.length}</span>
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="nextWidgetPhoto()">Next ➡️</button>
         </div>
@@ -949,19 +934,16 @@
       };
 
       addExifItem('Tên ảnh (Title)', item.title, true);
-      addExifItem('Tác giả (Author)', item.author);
-      addExifItem('Ngày chụp (Taken Date)', item.takenDate);
+      addExifItem('Nguồn lưu trữ (Source)', item.source);
+      addExifItem('Ngày cập nhật (Date)', item.takenDate);
 
       if (item.exif) {
-        addExifItem('Máy ảnh (Camera)', item.exif.camera);
-        addExifItem('Ống kính (Lens)', item.exif.lens);
-        addExifItem('Khẩu độ (Aperture)', item.exif.aperture);
-        addExifItem('Tốc độ (Shutter Speed)', item.exif.shutterSpeed);
-        addExifItem('ISO', item.exif.iso);
+        addExifItem('Loại máy/Nguồn (Camera)', item.exif.camera);
+        addExifItem('Luồng dữ liệu (Lens)', item.exif.lens);
       }
 
       if (!hasExifData) {
-        exifContainer.innerHTML = `<div class="exif-item full-width">Không tìm thấy thông số EXIF công khai cho bức ảnh này.</div>`;
+        exifContainer.innerHTML = `<div class="exif-item full-width">Không có thông tin bổ sung cho ảnh này.</div>`;
       }
 
       exifContainer.style.display = 'grid';
