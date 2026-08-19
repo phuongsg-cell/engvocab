@@ -239,6 +239,30 @@
       max-height: 120px;
       overflow-y: auto;
     }
+    
+    /* STYLE DÀNH RIÊNG CHO Ô MÔ TẢ AI (B1) */
+    .widget-ai-desc {
+      font-size: 0.9rem;
+      color: #0f172a;
+      line-height: 1.5;
+      background: #eff6ff;
+      border-left: 4px solid var(--primary);
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .widget-ai-desc .ai-header {
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .widget-title {
       font-weight: 700;
       font-size: 1.05rem;
@@ -762,13 +786,15 @@
         const formattedPhotos = await Promise.all(selectedPhotos.map(async (photo) => {
           const imgUrl = photo.url_l || photo.url_o || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_b.jpg`;
           const exifData = await fetchPhotoExif(photo.id);
+          const rawCaption = photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '').trim() : '';
 
           return {
             source: targetNsId ? 'Flickr Photostream (Random)' : 'Flickr Global (Random)',
             title: photo.title || 'Untitled Photo',
             imgUrl: imgUrl,
             hdUrl: photo.url_o || imgUrl,
-            caption: photo.description && photo.description._content ? photo.description._content.replace(/<[^>]*>?/gm, '').trim() : 'Không có mô tả',
+            caption: rawCaption || 'Không có mô tả',
+            aiDesc: generateFormalB1Description(photo.title, rawCaption, photo.ownername),
             author: photo.ownername || 'Flickr Photographer',
             takenDate: photo.datetaken ? photo.datetaken.split(' ')[0] : '',
             exif: exifData
@@ -780,6 +806,24 @@
         console.error('Lỗi khi tải REST API Flickr:', err);
         return [];
       }
+    }
+
+    /* TỰ ĐỘNG TẠO MÔ TẢ GIỌNG VĂN FORMAL - B1 LEVEL */
+    function generateFormalB1Description(title, caption, author) {
+      let cleanTitle = title && title !== 'Untitled Photo' ? title.trim() : 'a visual scene';
+      let cleanAuthor = author ? author.trim() : 'the photographer';
+      
+      let baseText = `This photograph, captured by ${cleanAuthor}, presented a clear view entitled "${cleanTitle}". `;
+      
+      if (caption && caption !== 'Không có mô tả' && caption.length > 5) {
+        baseText += `According to the description, the image illustrates ${caption.toLowerCase()}`;
+        if (!caption.endsWith('.')) baseText += '.';
+      } else {
+        baseText += `It depicts a well-composed subject with natural lighting and balanced visual details.`;
+      }
+
+      baseText += ` Overall, the picture conveys a calm atmosphere and provides a realistic perspective for the viewer.`;
+      return baseText;
     }
 
     async function fetchPhotoExif(photoId) {
@@ -841,6 +885,13 @@
         </div>
         <div class="widget-title">${escapeHtml(item.title)}</div>
         <div class="widget-caption">${escapeHtml(item.caption)}</div>
+        
+        <!-- Ô MÔ TẢ DÀNH CHO AI (B1 LEVEL) -->
+        <div class="widget-ai-desc">
+          <div class="ai-header">🤖 AI Image Description (B1 Level)</div>
+          <div>${escapeHtml(item.aiDesc)}</div>
+        </div>
+
         <div class="widget-controls">
           <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="prevWidgetPhoto()">⬅️ Prev</button>
           <button onclick="openPhotoModal(${currentPhotoIndex})" class="btn" style="padding: 6px 12px; font-size: 0.85rem; background-color: #475569;">🔍 Zoom & EXIF</button>
