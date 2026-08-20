@@ -322,7 +322,7 @@
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.2s ease, visibility 0.2s ease;
-      z-index: 100;
+      z-index: 10001;
       pointer-events: none;
       line-height: 1.3;
       font-weight: normal;
@@ -335,23 +335,24 @@
 
     /* Context Toolbar for Selection */
     .selection-toolbar {
-      position: absolute;
+      position: fixed;
       display: none;
       background: #1e293b;
       border-radius: 6px;
       padding: 4px;
       gap: 4px;
       z-index: 10000;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .selection-toolbar button {
       background: transparent;
       color: #ffffff;
       border: none;
-      padding: 4px 8px;
-      font-size: 0.8rem;
+      padding: 6px 10px;
+      font-size: 0.82rem;
       cursor: pointer;
       border-radius: 4px;
+      font-weight: 500;
     }
     .selection-toolbar button:hover {
       background: #334155;
@@ -550,7 +551,7 @@
     let activePassageId = null;
     let saveTimeout = null;
     let isSyncingScroll = false;
-    let currentRange = null;
+    let savedRange = null;
 
     window.onload = () => {
       initGapi();
@@ -1133,7 +1134,6 @@
 
     /* --- HIGHLIGHT & NOTE LOGIC FOR VIETNAMESE SIDE --- */
     function handleViSelection(e) {
-      // Tránh ẩn toolbar ngay khi vừa bấm vào nút trong toolbar
       const toolbar = document.getElementById('selection-toolbar');
       if (e && toolbar.contains(e.target)) return;
 
@@ -1143,58 +1143,62 @@
         return;
       }
 
-      // Kiểm tra vùng chọn có nằm trong cột Tiếng Việt không
       const viCol = document.getElementById('col-vi');
-      if (!viCol.contains(sel.anchorNode)) {
+      if (!viCol.contains(sel.anchorNode) || !viCol.contains(sel.focusNode)) {
         toolbar.style.display = 'none';
         return;
       }
 
-      currentRange = sel.getRangeAt(0);
-      const rect = currentRange.getBoundingClientRect();
+      // Lưu trữ Range chọn chuẩn xác
+      savedRange = sel.getRangeAt(0).cloneRange();
+      const rect = savedRange.getBoundingClientRect();
 
-      toolbar.style.top = `${rect.top - 42}px`;
+      // Hiển thị Toolbar chính xác theo tọa độ viewport
+      toolbar.style.top = `${rect.top - 45}px`;
       toolbar.style.left = `${rect.left + (rect.width / 2) - 60}px`;
       toolbar.style.display = 'flex';
     }
 
-    function applyHighlight() {
+    function wrapSelectedText(className, attributes = {}) {
+      if (!savedRange) return;
+
       const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) return;
-
-      const selectedText = sel.toString();
-      if (!selectedText) return;
-
-      // Đảm bảo vùng chọn được active
       sel.removeAllRanges();
-      sel.addRange(currentRange);
+      sel.addRange(savedRange);
 
-      const highlightedHtml = `<span class="hl-yellow">${escapeHtml(selectedText)}</span>`;
-      document.execCommand('insertHTML', false, highlightedHtml);
+      const wrapper = document.createElement('span');
+      wrapper.className = className;
+      
+      for (const [key, value] of Object.entries(attributes)) {
+        wrapper.setAttribute(key, value);
+      }
 
-      document.getElementById('selection-toolbar').style.display = 'none';
-      onPassageContentChange();
+      try {
+        wrapper.appendChild(savedRange.extractContents());
+        savedRange.insertNode(wrapper);
+
+        sel.removeAllRanges();
+        savedRange = null;
+        
+        document.getElementById('selection-toolbar').style.display = 'none';
+        onPassageContentChange();
+      } catch (err) {
+        console.error("Không thể áp dụng highlight/note:", err);
+        alert("Vui lòng bôi đen văn bản trong cùng một đoạn văn!");
+      }
+    }
+
+    function applyHighlight() {
+      wrapSelectedText('hl-yellow');
     }
 
     function applyNote() {
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) return;
-
-      const selectedText = sel.toString();
-      if (!selectedText) return;
-
+      if (!savedRange) return;
+      
       const noteText = prompt('Nhập ghi chú cho đoạn này:');
-      if (!noteText) return;
+      if (!noteText || !noteText.trim()) return;
 
-      // Đảm bảo vùng chọn được active
-      sel.removeAllRanges();
-      sel.addRange(currentRange);
-
-      const noteHtml = `<span class="vi-note" data-note="${escapeHtml(noteText)}">${escapeHtml(selectedText)}</span>`;
-      document.execCommand('insertHTML', false, noteHtml);
-
-      document.getElementById('selection-toolbar').style.display = 'none';
-      onPassageContentChange();
+      wrapSelectedText('vi-note', { 'data-note': noteText.trim() });
     }
 
     /* --- HELPERS --- */
