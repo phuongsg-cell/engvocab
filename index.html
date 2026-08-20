@@ -85,7 +85,7 @@
     h2 { color: var(--primary); font-size: 1.25rem; margin-bottom: 14px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
 
     .input-group { margin-bottom: 10px; }
-    input[type="text"], textarea {
+    input[type="text"], select, textarea {
       width: 100%;
       padding: 10px 14px;
       margin-top: 4px;
@@ -95,8 +95,14 @@
       font-family: inherit;
     }
     textarea { resize: vertical; min-height: 90px; }
-    input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--primary); }
+    input[type="text"]:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
     
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
     .btn {
       background-color: var(--primary);
       color: white;
@@ -263,20 +269,92 @@
       line-height: 1.8;
       white-space: pre-wrap;
       word-break: break-word;
+      outline: none;
     }
 
     .passage-column.en-side {
       color: #0f172a;
       border-right: 1px solid var(--border);
     }
+    .passage-column.en-side:focus {
+      background: #fafafa;
+    }
 
     .passage-column.vi-side {
-      outline: none;
       color: #334155;
       background: #fafafa;
     }
     .passage-column.vi-side:focus {
       background: #ffffff;
+    }
+
+    /* Highlight & Note styling */
+    .hl-yellow {
+      background-color: #fef08a;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .vi-note {
+      background-color: #fef08a;
+      border-bottom: 2px dashed #eab308;
+      position: relative;
+      cursor: help;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .vi-note::after {
+      content: attr(data-note);
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #1e293b;
+      color: #ffffff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      white-space: normal;
+      max-width: 220px;
+      width: max-content;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      z-index: 100;
+      pointer-events: none;
+      line-height: 1.3;
+      font-weight: normal;
+    }
+
+    .vi-note:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Context Toolbar for Selection */
+    .selection-toolbar {
+      position: absolute;
+      display: none;
+      background: #1e293b;
+      border-radius: 6px;
+      padding: 4px;
+      gap: 4px;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .selection-toolbar button {
+      background: transparent;
+      color: #ffffff;
+      border: none;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .selection-toolbar button:hover {
+      background: #334155;
     }
 
     .save-indicator {
@@ -393,6 +471,14 @@
   <!-- READING PASSAGES LIST -->
   <div class="card">
     <h2>📚 Reading Passages List</h2>
+    <div class="filter-bar">
+      <select id="passage-sort" onchange="renderPassageList()">
+        <option value="time-desc">Thời gian: Mới nhất</option>
+        <option value="time-asc">Thời gian: Cũ nhất</option>
+        <option value="alpha-asc">Tên bài: A ➡️ Z</option>
+        <option value="alpha-desc">Tên bài: Z ➡️ A</option>
+      </select>
+    </div>
     <div id="passage-list">Loading...</div>
     <div id="passage-pagination" class="pagination"></div>
   </div>
@@ -400,8 +486,14 @@
   <!-- VOCABULARY LIST -->
   <div class="card">
     <h2>📋 Vocabulary List</h2>
-    <div class="input-group" style="margin-bottom: 16px;">
+    <div class="filter-bar">
       <input type="text" id="search-input" placeholder="🔍 Search by word or meaning..." oninput="onSearchInput()">
+      <select id="vocab-sort" style="width: 220px;" onchange="renderVocabList()">
+        <option value="time-desc">Mới nhất</option>
+        <option value="time-asc">Cũ nhất</option>
+        <option value="alpha-asc">Từ vựng: A ➡️ Z</option>
+        <option value="alpha-desc">Từ vựng: Z ➡️ A</option>
+      </select>
     </div>
     <div id="vocab-list">Loading...</div>
     <div id="pagination-controls" class="pagination"></div>
@@ -417,11 +509,17 @@
       </div>
 
       <div class="modal-body">
-        <div class="passage-column en-side" id="col-en"></div>
-        <div class="passage-column vi-side" id="col-vi" contenteditable="true" oninput="onViContentChange()"></div>
+        <div class="passage-column en-side" id="col-en" contenteditable="true" oninput="onPassageContentChange()"></div>
+        <div class="passage-column vi-side" id="col-vi" contenteditable="true" oninput="onPassageContentChange()" onmouseup="handleViSelection(event)"></div>
       </div>
       <div class="save-indicator" id="save-indicator">✓ Auto-saved</div>
     </div>
+  </div>
+
+  <!-- TOOLBAR FOR VI HIGHLIGHT/NOTE -->
+  <div id="selection-toolbar" class="selection-toolbar">
+    <button onclick="applyHighlight()">🟡 Highlight</button>
+    <button onclick="applyNote()">📝 Add Note</button>
   </div>
 
   <script>
@@ -452,6 +550,7 @@
     let activePassageId = null;
     let saveTimeout = null;
     let isSyncingScroll = false;
+    let currentRange = null;
 
     window.onload = () => {
       initGapi();
@@ -466,6 +565,13 @@
 
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeReadingModal();
+      });
+
+      document.addEventListener('mousedown', (e) => {
+        const toolbar = document.getElementById('selection-toolbar');
+        if (toolbar && !toolbar.contains(e.target) && !document.getElementById('col-vi').contains(e.target)) {
+          toolbar.style.display = 'none';
+        }
       });
     };
 
@@ -799,11 +905,25 @@
     /* --- VOCAB LIST & PAGINATION --- */
     function getFilteredVocabList() {
       const query = document.getElementById('search-input').value.toLowerCase().trim();
-      if (!query) return appData.vocab;
-      return appData.vocab.filter(item => 
-        item.word.toLowerCase().includes(query) || 
-        item.meaning.toLowerCase().includes(query)
-      );
+      let list = [...appData.vocab];
+
+      if (query) {
+        list = list.filter(item => 
+          item.word.toLowerCase().includes(query) || 
+          item.meaning.toLowerCase().includes(query)
+        );
+      }
+
+      const sortVal = document.getElementById('vocab-sort').value;
+      list.sort((a, b) => {
+        if (sortVal === 'time-desc') return b.id - a.id;
+        if (sortVal === 'time-asc') return a.id - b.id;
+        if (sortVal === 'alpha-asc') return a.word.localeCompare(b.word);
+        if (sortVal === 'alpha-desc') return b.word.localeCompare(a.word);
+        return 0;
+      });
+
+      return list;
     }
 
     function onSearchInput() {
@@ -860,9 +980,24 @@
     }
 
     /* --- PASSAGE LIST & PAGINATION --- */
+    function getSortedPassageList() {
+      let passages = [...(appData.passages || [])];
+      const sortVal = document.getElementById('passage-sort').value;
+
+      passages.sort((a, b) => {
+        if (sortVal === 'time-desc') return b.id - a.id;
+        if (sortVal === 'time-asc') return a.id - b.id;
+        if (sortVal === 'alpha-asc') return a.title.localeCompare(b.title);
+        if (sortVal === 'alpha-desc') return b.title.localeCompare(a.title);
+        return 0;
+      });
+
+      return passages;
+    }
+
     function renderPassageList() {
       const listEl = document.getElementById('passage-list');
-      const passages = appData.passages || [];
+      const passages = getSortedPassageList();
 
       if (passages.length === 0) {
         listEl.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px 0;">Chưa có bài đọc nào. Hãy thêm ở khung bên trên!</p>';
@@ -880,7 +1015,7 @@
         <div class="list-item">
           <div class="list-info" onclick="openReadingModal(${item.id})">
             <div class="list-title">${escapeHtml(item.title)}</div>
-            <div class="list-preview">${escapeHtml(item.enText)}</div>
+            <div class="list-preview">${stripTags(item.enText)}</div>
           </div>
           <div class="action-btns">
             <button class="icon-btn delete-btn" onclick="deletePassage(${item.id})" title="Xóa đoạn văn">🗑️</button>
@@ -925,8 +1060,8 @@
 
       activePassageId = id;
       document.getElementById('modal-passage-title').innerText = item.title;
-      document.getElementById('col-en').innerText = item.enText;
-      document.getElementById('col-vi').innerText = item.viText || '';
+      document.getElementById('col-en').innerHTML = item.enText || '';
+      document.getElementById('col-vi').innerHTML = item.viText || '';
 
       document.getElementById('reading-modal').classList.add('active');
       
@@ -939,13 +1074,13 @@
     function closeReadingModal(e) {
       if (e && e.target !== e.currentTarget && e.type === 'click') return;
       
-      // Flash save if debouncing pending
       if (saveTimeout) {
         clearTimeout(saveTimeout);
-        saveViContentImmediate();
+        savePassageContentImmediate();
       }
 
       document.getElementById('reading-modal').classList.remove('active');
+      document.getElementById('selection-toolbar').style.display = 'none';
       activePassageId = null;
     }
 
@@ -974,24 +1109,67 @@
       colVi.addEventListener('scroll', () => sync(colVi, colEn));
     }
 
-    function onViContentChange() {
+    function onPassageContentChange() {
       if (!activePassageId) return;
 
       if (saveTimeout) clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
-        saveViContentImmediate();
+        savePassageContentImmediate();
       }, 800);
     }
 
-    async function saveViContentImmediate() {
+    async function savePassageContentImmediate() {
       if (!activePassageId) return;
-      const newViText = document.getElementById('col-vi').innerText;
+      const newEnText = document.getElementById('col-en').innerHTML;
+      const newViText = document.getElementById('col-vi').innerHTML;
       
       const target = appData.passages.find(p => p.id === activePassageId);
-      if (target && target.viText !== newViText) {
+      if (target && (target.viText !== newViText || target.enText !== newEnText)) {
+        target.enText = newEnText;
         target.viText = newViText;
         await saveDataToDrive();
       }
+    }
+
+    /* --- HIGHLIGHT & NOTE LOGIC FOR VIETNAMESE SIDE --- */
+    function handleViSelection(e) {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        document.getElementById('selection-toolbar').style.display = 'none';
+        return;
+      }
+
+      currentRange = sel.getRangeAt(0);
+      const rect = currentRange.getBoundingClientRect();
+      const toolbar = document.getElementById('selection-toolbar');
+
+      toolbar.style.top = `${rect.top - 40}px`;
+      toolbar.style.left = `${rect.left + (rect.width / 2) - 60}px`;
+      toolbar.style.display = 'flex';
+    }
+
+    function applyHighlight() {
+      if (!currentRange) return;
+      const span = document.createElement('span');
+      span.className = 'hl-yellow';
+      span.appendChild(currentRange.extractContents());
+      currentRange.insertNode(span);
+      document.getElementById('selection-toolbar').style.display = 'none';
+      onPassageContentChange();
+    }
+
+    function applyNote() {
+      if (!currentRange) return;
+      const noteText = prompt('Nhập ghi chú cho đoạn này:');
+      if (!noteText) return;
+
+      const span = document.createElement('span');
+      span.className = 'vi-note';
+      span.setAttribute('data-note', noteText);
+      span.appendChild(currentRange.extractContents());
+      currentRange.insertNode(span);
+      document.getElementById('selection-toolbar').style.display = 'none';
+      onPassageContentChange();
     }
 
     /* --- HELPERS --- */
@@ -1003,6 +1181,13 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+
+    function stripTags(html) {
+      if (!html) return '';
+      let tmp = document.createElement("DIV");
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || "";
     }
 
     function escapeJsString(str) {
