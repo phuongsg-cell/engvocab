@@ -1133,41 +1133,66 @@
 
     /* --- HIGHLIGHT & NOTE LOGIC FOR VIETNAMESE SIDE --- */
     function handleViSelection(e) {
+      // Tránh ẩn toolbar ngay khi vừa bấm vào nút trong toolbar
+      const toolbar = document.getElementById('selection-toolbar');
+      if (e && toolbar.contains(e.target)) return;
+
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-        document.getElementById('selection-toolbar').style.display = 'none';
+        toolbar.style.display = 'none';
+        return;
+      }
+
+      // Kiểm tra vùng chọn có nằm trong cột Tiếng Việt không
+      const viCol = document.getElementById('col-vi');
+      if (!viCol.contains(sel.anchorNode)) {
+        toolbar.style.display = 'none';
         return;
       }
 
       currentRange = sel.getRangeAt(0);
       const rect = currentRange.getBoundingClientRect();
-      const toolbar = document.getElementById('selection-toolbar');
 
-      toolbar.style.top = `${rect.top - 40}px`;
+      toolbar.style.top = `${rect.top - 42}px`;
       toolbar.style.left = `${rect.left + (rect.width / 2) - 60}px`;
       toolbar.style.display = 'flex';
     }
 
     function applyHighlight() {
-      if (!currentRange) return;
-      const span = document.createElement('span');
-      span.className = 'hl-yellow';
-      span.appendChild(currentRange.extractContents());
-      currentRange.insertNode(span);
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+
+      const selectedText = sel.toString();
+      if (!selectedText) return;
+
+      // Đảm bảo vùng chọn được active
+      sel.removeAllRanges();
+      sel.addRange(currentRange);
+
+      const highlightedHtml = `<span class="hl-yellow">${escapeHtml(selectedText)}</span>`;
+      document.execCommand('insertHTML', false, highlightedHtml);
+
       document.getElementById('selection-toolbar').style.display = 'none';
       onPassageContentChange();
     }
 
     function applyNote() {
-      if (!currentRange) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+
+      const selectedText = sel.toString();
+      if (!selectedText) return;
+
       const noteText = prompt('Nhập ghi chú cho đoạn này:');
       if (!noteText) return;
 
-      const span = document.createElement('span');
-      span.className = 'vi-note';
-      span.setAttribute('data-note', noteText);
-      span.appendChild(currentRange.extractContents());
-      currentRange.insertNode(span);
+      // Đảm bảo vùng chọn được active
+      sel.removeAllRanges();
+      sel.addRange(currentRange);
+
+      const noteHtml = `<span class="vi-note" data-note="${escapeHtml(noteText)}">${escapeHtml(selectedText)}</span>`;
+      document.execCommand('insertHTML', false, noteHtml);
+
       document.getElementById('selection-toolbar').style.display = 'none';
       onPassageContentChange();
     }
