@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocabulary Flashcard & OpenDrive Cloud Gallery</title>
+  <title>Vocabulary Flashcard & Reading Passage Hub</title>
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -12,8 +12,6 @@
     :root {
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
-      --cloud: #0284c7;
-      --cloud-hover: #0369a1;
       --success: #16a34a;
       --danger: #dc2626;
       --bg: #f8fafc;
@@ -31,7 +29,7 @@
       color: var(--text);
       line-height: 1.6;
       padding: 20px;
-      max-width: 700px;
+      max-width: 800px;
       margin: 0 auto;
     }
 
@@ -59,7 +57,7 @@
 
     .stats-container {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 12px;
       margin-bottom: 20px;
     }
@@ -87,15 +85,17 @@
     h2 { color: var(--primary); font-size: 1.25rem; margin-bottom: 14px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
 
     .input-group { margin-bottom: 10px; }
-    input[type="text"] {
+    input[type="text"], textarea {
       width: 100%;
       padding: 10px 14px;
       margin-top: 4px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
       font-size: 0.95rem;
+      font-family: inherit;
     }
-    input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    textarea { resize: vertical; min-height: 90px; }
+    input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--primary); }
     
     .btn {
       background-color: var(--primary);
@@ -115,6 +115,7 @@
     .btn:hover { background-color: var(--primary-hover); }
     .btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
 
+    /* Flashcard */
     .flashcard {
       width: 100%;
       min-height: 180px;
@@ -139,6 +140,24 @@
     .flashcard-hint { position: absolute; bottom: 8px; font-size: 0.75rem; opacity: 0.6; }
 
     .flashcard-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+
+    /* Lists */
+    .list-item {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: #fafafa;
+      transition: background 0.2s;
+    }
+    .list-item:hover { background: #f1f5f9; }
+    .list-info { flex: 1; cursor: pointer; }
+    .list-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .list-preview { color: var(--subtext); font-size: 0.85rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px; }
 
     .vocab-item {
       padding: 12px 0;
@@ -172,123 +191,106 @@
     .icon-btn:hover { background: #e2e8f0; }
     .icon-btn.delete-btn:hover { background: #fee2e2; border-color: #fca5a5; color: var(--danger); }
 
+    /* Modal Reading View */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(15, 23, 42, 0.96);
-      backdrop-filter: blur(10px);
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
       z-index: 9999;
       display: none;
       justify-content: center;
       align-items: center;
-      padding: 10px;
+      padding: 20px;
     }
     .modal-overlay.active { display: flex; }
     
     .modal-content {
-      background: #0f172a;
-      color: #f8fafc;
-      width: 98vw;
-      height: 96vh;
-      max-width: 100vw;
-      max-height: 100vh;
+      background: #ffffff;
+      color: var(--text);
+      width: 95vw;
+      max-width: 1100px;
+      height: 88vh;
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
       position: relative;
       display: flex;
       flex-direction: column;
-      border: 1px solid #334155;
-    }
-    .modal-close-btn {
-      position: absolute;
-      top: 12px; right: 12px;
-      background: rgba(0,0,0,0.6);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.2);
-      width: 38px; height: 38px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 1.2rem;
-      line-height: 1;
-      z-index: 30;
-    }
-    .modal-img-container {
-      background: #000;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex: 1;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      position: relative;
-    }
-    .modal-img-container img {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
+      border: 1px solid var(--border);
     }
 
-    .modal-nav-btn {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(15, 23, 42, 0.7);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      width: 46px;
-      height: 46px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 1.3rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 25;
-      transition: background 0.2s, transform 0.2s;
-      backdrop-filter: blur(4px);
-    }
-    .modal-nav-btn:hover { background: rgba(37, 99, 235, 0.9); transform: translateY(-50%) scale(1.08); }
-    .modal-nav-btn.prev { left: 16px; }
-    .modal-nav-btn.next { right: 16px; }
-    
-    .modal-toolbar {
-      padding: 12px 16px;
-      background: #1e293b;
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-top: 1px solid #334155;
+      background: #f8fafc;
     }
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-align: center;
+      flex: 1;
+      padding: 0 20px;
+    }
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--subtext);
+      line-height: 1;
+    }
+    .modal-close-btn:hover { color: var(--danger); }
 
-    .modal-details {
-      padding: 16px 20px;
-      background: #0f172a;
-      overflow-y: auto;
-      font-size: 0.9rem;
-      border-top: 1px solid #334155;
-      display: none;
-      max-height: 38vh;
-    }
-    .modal-details.show { display: block; }
-    .modal-details h3 { font-size: 1.1rem; color: #38bdf8; margin-bottom: 6px; }
-    
-    .exif-grid {
+    .modal-body {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 10px;
-      background: #1e293b;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #334155;
+      flex: 1;
+      overflow: hidden;
+      gap: 1px;
+      background: var(--border);
     }
-    .exif-item { font-size: 0.85rem; color: #94a3b8; }
-    .exif-item.full-width { grid-column: span 2; }
-    .exif-item span { font-weight: 600; color: #f1f5f9; }
+
+    .passage-column {
+      background: #ffffff;
+      padding: 24px;
+      overflow-y: auto;
+      font-size: 1.05rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .passage-column.en-side {
+      color: #0f172a;
+      border-right: 1px solid var(--border);
+    }
+
+    .passage-column.vi-side {
+      outline: none;
+      color: #334155;
+      background: #fafafa;
+    }
+    .passage-column.vi-side:focus {
+      background: #ffffff;
+    }
+
+    .save-indicator {
+      position: absolute;
+      bottom: 12px;
+      right: 20px;
+      font-size: 0.8rem;
+      color: var(--success);
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .save-indicator.show { opacity: 1; }
 
     .pagination {
       display: flex;
@@ -299,23 +301,24 @@
       padding-top: 12px;
       border-top: 1px solid var(--border);
     }
+
+    @media (max-width: 640px) {
+      .modal-body { grid-template-columns: 1fr; }
+      .passage-column.en-side { border-right: none; border-bottom: 1px solid var(--border); }
+    }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>🎴 Flashcard & Vocabulary Hub</h1>
-    <p>Practice English Vocabulary • 10 Minutes Everyday</p>
+    <h1>📖 Vocabulary & Reading Hub</h1>
+    <p>Practice English Vocabulary & Reading • Everyday</p>
   </div>
 
   <div class="status-bar">
     <div class="status-group">
       <div id="status" class="status-indicator offline">🔴 Drive: Disconnected</div>
       <button id="auth-btn" class="btn" onclick="handleAuthClick()">Sign-in Drive</button>
-    </div>
-    
-    <div class="status-group">
-      <div id="cloud-status" class="status-indicator online">🟢 OpenDrive Cloud</div>
     </div>
   </div>
 
@@ -325,18 +328,16 @@
       <div class="stat-label">Total Words</div>
     </div>
     <div class="stat-card">
+      <div class="stat-value" id="stat-passages">0</div>
+      <div class="stat-label">Passages</div>
+    </div>
+    <div class="stat-card">
       <div class="stat-value" id="stat-today">0</div>
       <div class="stat-label">Added Today</div>
     </div>
   </div>
 
-  <div class="card" id="gallery-card">
-    <h2>☁️ OpenDrive Cloud - 5 Random Photos</h2>
-    <div id="daily-widget-content">
-      <p style="color: var(--subtext); text-align: center;">Loading photos from OpenDrive...</p>
-    </div>
-  </div>
-
+  <!-- FLASHCARD -->
   <div class="card">
     <h2>🧠 Flashcard</h2>
     <div id="flashcard-area">
@@ -355,8 +356,9 @@
     </div>
   </div>
 
+  <!-- ADD VOCABULARY -->
   <div class="card">
-    <h2>➕ Add a new vocabulary</h2>
+    <h2>➕ Add New Vocabulary</h2>
     <div class="input-group">
       <input type="text" id="new-word" placeholder="Word or Phrase (Example: Recommendation)">
     </div>
@@ -367,10 +369,35 @@
       <input type="text" id="new-meaning" placeholder="Meaning (Example: Lời khuyên, sự giới thiệu)">
     </div>
     <button id="add-btn" class="btn" style="width: 100%; margin-top: 6px;" onclick="addWord()" disabled>
-      Save
+      Save Vocabulary
     </button>
   </div>
 
+  <!-- ADD READING TEXT -->
+  <div class="card">
+    <h2>📄 Add New Reading Text</h2>
+    <div class="input-group">
+      <input type="text" id="passage-title" placeholder="Title (Ví dụ: The Future of AI)">
+    </div>
+    <div class="input-group">
+      <textarea id="passage-en" placeholder="Đoạn văn tiếng Anh..."></textarea>
+    </div>
+    <div class="input-group">
+      <textarea id="passage-vi" placeholder="Phần dịch tiếng Việt..."></textarea>
+    </div>
+    <button id="add-passage-btn" class="btn" style="width: 100%; margin-top: 6px;" onclick="addPassage()" disabled>
+      Save Reading Passage
+    </button>
+  </div>
+
+  <!-- READING PASSAGES LIST -->
+  <div class="card">
+    <h2>📚 Reading Passages List</h2>
+    <div id="passage-list">Loading...</div>
+    <div id="passage-pagination" class="pagination"></div>
+  </div>
+
+  <!-- VOCABULARY LIST -->
   <div class="card">
     <h2>📋 Vocabulary List</h2>
     <div class="input-group" style="margin-bottom: 16px;">
@@ -380,30 +407,20 @@
     <div id="pagination-controls" class="pagination"></div>
   </div>
 
-  <!-- MODAL VIEW PHOTO -->
-  <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
+  <!-- MODAL READING POP-UP -->
+  <div class="modal-overlay" id="reading-modal" onclick="closeReadingModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
-      <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
-      
-      <div class="modal-img-container">
-        <button class="modal-nav-btn prev" onclick="navigateModalPhoto(-1)" title="Ảnh trước">⬅️</button>
-        <img id="modal-img" src="" alt="Full view" referrerpolicy="no-referrer" />
-        <button class="modal-nav-btn next" onclick="navigateModalPhoto(1)" title="Ảnh kế tiếp">➡️</button>
+      <div class="modal-header">
+        <div style="width: 30px;"></div>
+        <div class="modal-title" id="modal-passage-title">Reading Passage</div>
+        <button class="modal-close-btn" onclick="closeReadingModal()">✕</button>
       </div>
 
-      <div class="modal-toolbar">
-        <span id="modal-title-bar" style="font-weight: 600; font-size: 0.95rem; color: #e2e8f0;">Photo View</span>
-        <span id="modal-photo-counter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">1 / 5</span>
-        <button class="btn" style="padding: 6px 12px; font-size: 0.82rem; background-color: #334155;" onclick="toggleMetadata()">
-          ℹ️ <span id="meta-toggle-btn-text">Hiện Metadata</span>
-        </button>
+      <div class="modal-body">
+        <div class="passage-column en-side" id="col-en"></div>
+        <div class="passage-column vi-side" id="col-vi" contenteditable="true" oninput="onViContentChange()"></div>
       </div>
-
-      <div class="modal-details" id="modal-details-panel">
-        <h3 id="modal-title">Photo Title</h3>
-        <p id="modal-caption" style="color: #cbd5e1; margin-bottom: 10px;"></p>
-        <div id="modal-exif-container" class="exif-grid"></div>
-      </div>
+      <div class="save-indicator" id="save-indicator">✓ Auto-saved</div>
     </div>
   </div>
 
@@ -412,30 +429,29 @@
     const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = 'eng_vocab_data.json';
 
-    /* --- DANH SÁCH DIRECT LINKS TỪ OPENDRIVE --- */
-    const OPENDRIVE_DIRECT_LINKS = [
-      'https://od.lk/s/NTIfMTE2MjcwMDYxXzRmYWtQ/20210818%20Dubrovnik%20Croatia.jpg',
-      // Dán thêm danh sách link ảnh OpenDrive của bạn tại đây
-    ];
-
     let tokenClient;
     let accessToken = null;
     let driveFileId = null;
 
-    let vocabData = [
-      { id: 1, word: 'Prescription', phonetic: '/prɪˈskrɪp.ʃən/', meaning: 'Toa thuốc / Đơn thuốc do bác sĩ kê', addedAt: '2026-08-14' },
-      { id: 2, word: 'Co-pay', phonetic: '/ˈkoʊ.peɪ/', meaning: 'Phí đồng thanh toán cố định khi khám bệnh', addedAt: '2026-08-14' },
-      { id: 3, word: 'Sprained ankle', phonetic: '/spreɪnd ˈæŋ.kəl/', meaning: 'Trật khớp / Bông gân cổ chân', addedAt: '2026-08-14' }
-    ];
+    let appData = {
+      vocab: [
+        { id: 1, word: 'Prescription', phonetic: '/prɪˈskrɪp.ʃən/', meaning: 'Toa thuốc / Đơn thuốc do bác sĩ kê', addedAt: '2026-08-14' },
+        { id: 2, word: 'Co-pay', phonetic: '/ˈkoʊ.peɪ/', meaning: 'Phí đồng thanh toán cố định khi khám bệnh', addedAt: '2026-08-14' },
+        { id: 3, word: 'Sprained ankle', phonetic: '/spreɪnd ˈæŋ.kəl/', meaning: 'Trật khớp / Bông gân cổ chân', addedAt: '2026-08-14' }
+      ],
+      passages: []
+    };
 
     let flashcardDeck = [];
     let currentCardIndex = 0;
 
-    let currentPage = 1;
+    let vocabPage = 1;
+    let passagePage = 1;
     const itemsPerPage = 20;
 
-    let photoFeed = [];
-    let currentPhotoIndex = 0;
+    let activePassageId = null;
+    let saveTimeout = null;
+    let isSyncingScroll = false;
 
     window.onload = () => {
       initGapi();
@@ -443,19 +459,13 @@
       prepareFlashcardDeck();
       renderFlashcard();
       renderVocabList();
+      renderPassageList();
       updateStats();
       updateStatus(false);
-      
-      // Tải 5 ảnh ngẫu nhiên từ OpenDrive ngay khi khởi chạy trang
-      loadDailyWidget();
+      setupScrollSync();
 
       document.addEventListener('keydown', (e) => {
-        const modal = document.getElementById('photo-modal');
-        if (modal.classList.contains('active')) {
-          if (e.key === 'ArrowLeft') navigateModalPhoto(-1);
-          if (e.key === 'ArrowRight') navigateModalPhoto(1);
-          if (e.key === 'Escape') closePhotoModal();
-        }
+        if (e.key === 'Escape') closeReadingModal();
       });
     };
 
@@ -534,213 +544,32 @@
       const statusEl = document.getElementById('status');
       const authBtn = document.getElementById('auth-btn');
       const addBtn = document.getElementById('add-btn');
+      const addPassageBtn = document.getElementById('add-passage-btn');
 
       if (isOnline) {
         statusEl.className = 'status-indicator online';
         statusEl.innerHTML = '🟢 Drive: Connected';
         authBtn.innerText = 'Sign-out';
         addBtn.disabled = false;
+        addPassageBtn.disabled = false;
       } else {
         statusEl.className = 'status-indicator offline';
         statusEl.innerHTML = '🔴 Drive: Disconnected';
         authBtn.innerText = 'Sign-in Drive';
         addBtn.disabled = true;
+        addPassageBtn.disabled = true;
       }
     }
 
     function updateStats() {
-      const totalEl = document.getElementById('stat-total');
-      const todayEl = document.getElementById('stat-today');
-
-      totalEl.innerText = vocabData.length;
+      document.getElementById('stat-total').innerText = appData.vocab.length;
+      document.getElementById('stat-passages').innerText = appData.passages ? appData.passages.length : 0;
 
       const todayStr = new Date().toISOString().split('T')[0];
-      const countToday = vocabData.filter(item => {
-        if (item.addedAt) return item.addedAt === todayStr;
-        if (typeof item.id === 'number' && item.id > 1000000000000) {
-          return new Date(item.id).toISOString().split('T')[0] === todayStr;
-        }
-        return false;
-      }).length;
+      const vocabToday = appData.vocab.filter(item => item.addedAt === todayStr).length;
+      const passageToday = appData.passages ? appData.passages.filter(item => item.addedAt === todayStr).length : 0;
 
-      todayEl.innerText = countToday;
-    }
-
-    /* --- OPENDRIVE DIRECT LINKS ENGINE --- */
-    async function fetchOpenDrivePhotos(count = 5) {
-      try {
-        if (!OPENDRIVE_DIRECT_LINKS || OPENDRIVE_DIRECT_LINKS.length === 0) {
-          console.warn('Chưa cấu hình OPENDRIVE_DIRECT_LINKS.');
-          return [];
-        }
-
-        // Tự động chuyển đổi link dạng /s/ thành /d/ (Direct stream URL)
-        const formattedLinks = OPENDRIVE_DIRECT_LINKS.map(link => link.replace('/od.lk/s/', '/od.lk/d/'));
-        const uniqueLinks = [...new Set(formattedLinks)];
-        
-        let pool = [...uniqueLinks];
-        // Tự động nhân bản nếu danh sách chưa có đủ 5 link
-        while (pool.length > 0 && pool.length < count) {
-          pool = pool.concat(uniqueLinks);
-        }
-
-        const shuffled = pool.sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, count);
-
-        return selected.map((url, index) => {
-          const rawName = url.split('/').pop().split('?')[0];
-          const decodedName = decodeURIComponent(rawName);
-
-          return {
-            source: 'OpenDrive Cloud',
-            title: decodedName || `OpenDrive Photo ${index + 1}`,
-            imgUrl: url,
-            hdUrl: url,
-            caption: `Hình ảnh lưu trữ: ${decodedName}`,
-            author: 'OpenDrive User',
-            takenDate: new Date().toISOString().split('T')[0],
-            exif: {
-              camera: 'Cloud Storage',
-              lens: 'Direct Stream',
-              aperture: 'N/A',
-              shutterSpeed: 'N/A',
-              iso: 'N/A'
-            }
-          };
-        });
-      } catch (err) {
-        console.error('Lỗi khi tải dữ liệu ảnh OpenDrive:', err);
-        return [];
-      }
-    }
-
-    async function loadDailyWidget() {
-      const widgetContainer = document.getElementById('daily-widget-content');
-      widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center; padding: 20px 0;">🔍 Đang tải 5 ảnh ngẫu nhiên từ OpenDrive Cloud...</p>`;
-
-      photoFeed = await fetchOpenDrivePhotos(5);
-
-      if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Chưa có link ảnh nào trong danh sách OPENDRIVE_DIRECT_LINKS.</p>`;
-        return;
-      }
-
-      renderDailyWidget();
-    }
-
-    function renderDailyWidget() {
-      const widgetContainer = document.getElementById('daily-widget-content');
-      if (!photoFeed || photoFeed.length === 0) {
-        widgetContainer.innerHTML = `<p style="color: var(--subtext); text-align: center;">Không tìm thấy ảnh. Vui lòng kiểm tra mảng OPENDRIVE_DIRECT_LINKS.</p>`;
-        return;
-      }
-
-      const galleryHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 12px;">
-          ${photoFeed.map((item, idx) => `
-            <div style="position: relative; border-radius: 8px; overflow: hidden; height: 110px; background: #0f172a; cursor: pointer;" onclick="openPhotoModal(${idx})">
-              <img src="${escapeHtml(item.imgUrl)}" 
-                   referrerpolicy="no-referrer"
-                   onerror="this.onerror=null; this.src='https://placehold.co/300x200/0f172a/38bdf8?text=Image+Error';"
-                   alt="${escapeHtml(item.title)}" 
-                   style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s;" 
-                   onmouseover="this.style.transform='scale(1.05)'" 
-                   onmouseout="this.style.transform='scale(1)'" 
-                   title="${escapeHtml(item.title)} - Click xem chi tiết" />
-              <span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.75); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; backdrop-filter: blur(2px);">${idx + 1}/${photoFeed.length}</span>
-            </div>
-          `).join('')}
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.85rem; color: var(--subtext);">Đang hiển thị <strong>${photoFeed.length}</strong> ảnh ngẫu nhiên</span>
-          <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="loadDailyWidget()">🔄 Lấy 5 ảnh khác</button>
-        </div>
-      `;
-
-      widgetContainer.innerHTML = galleryHTML;
-    }
-
-    function openPhotoModal(index) {
-      if (!photoFeed || photoFeed.length === 0) return;
-      currentPhotoIndex = index;
-      updateModalContent();
-      document.getElementById('photo-modal').classList.add('active');
-    }
-
-    function updateModalContent() {
-      const item = photoFeed[currentPhotoIndex];
-      if (!item) return;
-
-      document.getElementById('modal-img').src = item.hdUrl || item.imgUrl;
-      document.getElementById('modal-title-bar').innerText = item.title || 'Photo View';
-      document.getElementById('modal-photo-counter').innerText = `${currentPhotoIndex + 1} / ${photoFeed.length}`;
-      document.getElementById('modal-title').innerText = item.title || 'Untitled Photo';
-      document.getElementById('modal-caption').innerText = item.caption || '';
-
-      const exifContainer = document.getElementById('modal-exif-container');
-      exifContainer.innerHTML = '';
-
-      let hasExifData = false;
-      const addExifItem = (label, val, fullWidth = false) => {
-        if (val) {
-          hasExifData = true;
-          exifContainer.innerHTML += `
-            <div class="exif-item ${fullWidth ? 'full-width' : ''}">${label}: <span>${escapeHtml(val)}</span></div>
-          `;
-        }
-      };
-
-      addExifItem('Tên ảnh (Title)', item.title, true);
-      addExifItem('Nguồn lưu trữ (Source)', item.source);
-      addExifItem('Ngày cập nhật (Date)', item.takenDate);
-
-      if (item.exif) {
-        addExifItem('Loại máy/Nguồn (Camera)', item.exif.camera);
-        addExifItem('Luồng dữ liệu (Lens)', item.exif.lens);
-      }
-
-      if (!hasExifData) {
-        exifContainer.innerHTML = `<div class="exif-item full-width">Không có thông tin bổ sung cho ảnh này.</div>`;
-      }
-
-      exifContainer.style.display = 'grid';
-    }
-
-    function navigateModalPhoto(direction) {
-      if (!photoFeed || photoFeed.length === 0) return;
-      currentPhotoIndex = (currentPhotoIndex + direction + photoFeed.length) % photoFeed.length;
-      updateModalContent();
-    }
-
-    function toggleMetadata() {
-      const detailsPanel = document.getElementById('modal-details-panel');
-      const btnText = document.getElementById('meta-toggle-btn-text');
-      
-      if (detailsPanel.classList.contains('show')) {
-        detailsPanel.classList.remove('show');
-        btnText.innerText = 'Hiện Metadata';
-      } else {
-        detailsPanel.classList.add('show');
-        btnText.innerText = 'Ẩn Metadata';
-      }
-    }
-
-    function closePhotoModal() {
-      document.getElementById('photo-modal').classList.remove('active');
-    }
-
-    function prepareFlashcardDeck() {
-      if (!vocabData || vocabData.length === 0) {
-        flashcardDeck = [];
-        return;
-      }
-
-      const newest10 = vocabData.slice(0, 10);
-      const remainingPool = vocabData.slice(10);
-      const shuffledRemaining = [...remainingPool].sort(() => 0.5 - Math.random());
-      const random10 = shuffledRemaining.slice(0, 10);
-
-      flashcardDeck = [...newest10, ...random10];
+      document.getElementById('stat-today').innerText = vocabToday + passageToday;
     }
 
     async function syncFromDrive() {
@@ -758,16 +587,28 @@
             fileId: driveFileId,
             alt: 'media',
           });
-          const fetchedData = Array.isArray(fileRes.result) ? fileRes.result : (fileRes.body ? JSON.parse(fileRes.body) : []);
-          if (fetchedData.length >= 0) vocabData = fetchedData;
+          
+          let rawData = fileRes.result || (fileRes.body ? JSON.parse(fileRes.body) : []);
+          
+          if (Array.isArray(rawData)) {
+            appData.vocab = rawData;
+            appData.passages = [];
+          } else if (typeof rawData === 'object') {
+            appData.vocab = rawData.vocab || [];
+            appData.passages = rawData.passages || [];
+          }
+
         } else {
-          driveFileId = await createNewDriveFile(vocabData);
+          driveFileId = await createNewDriveFile(appData);
         }
+
         currentCardIndex = 0;
-        currentPage = 1;
+        vocabPage = 1;
+        passagePage = 1;
         prepareFlashcardDeck();
         renderFlashcard();
         renderVocabList();
+        renderPassageList();
         updateStats();
       } catch (err) {
         console.error('Lỗi tải dữ liệu:', err);
@@ -801,16 +642,42 @@
       return resData.id;
     }
 
-    async function updateDriveFile(data) {
-      if (!driveFileId) return;
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+    async function saveDataToDrive() {
+      if (!accessToken || !driveFileId) return;
+      try {
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(appData),
+        });
+        showSaveIndicator();
+      } catch (err) {
+        console.error("Lỗi khi lưu Drive:", err);
+      }
+    }
+
+    function showSaveIndicator() {
+      const ind = document.getElementById('save-indicator');
+      ind.classList.add('show');
+      setTimeout(() => ind.classList.remove('show'), 2000);
+    }
+
+    /* --- FLASHCARD ENGINE --- */
+    function prepareFlashcardDeck() {
+      if (!appData.vocab || appData.vocab.length === 0) {
+        flashcardDeck = [];
+        return;
+      }
+
+      const newest10 = appData.vocab.slice(0, 10);
+      const remainingPool = appData.vocab.slice(10);
+      const shuffledRemaining = [...remainingPool].sort(() => 0.5 - Math.random());
+      const random10 = shuffledRemaining.slice(0, 10);
+
+      flashcardDeck = [...newest10, ...random10];
     }
 
     function renderFlashcard() {
@@ -851,7 +718,7 @@
 
     function speakText(text) {
       if (!('speechSynthesis' in window)) {
-        alert('Trình duyệt của bạn không hỗ trợ đọc âm thanh (Speech Synthesis).');
+        alert('Trình duyệt của bạn không hỗ trợ đọc âm thanh.');
         return;
       }
       window.speechSynthesis.cancel();
@@ -863,40 +730,101 @@
 
     function speakCurrentCard() {
       if (flashcardDeck.length === 0) return;
-      const word = flashcardDeck[currentCardIndex].word;
-      speakText(word);
+      speakText(flashcardDeck[currentCardIndex].word);
     }
 
+    /* --- ADD VOCABULARY & PASSAGE --- */
+    async function addWord() {
+      const wordInput = document.getElementById('new-word');
+      const phoneticInput = document.getElementById('new-phonetic');
+      const meaningInput = document.getElementById('new-meaning');
+
+      const word = wordInput.value.trim();
+      const phonetic = phoneticInput.value.trim();
+      const meaning = meaningInput.value.trim();
+
+      if (!word || !meaning) {
+        alert('Vui lòng nhập từ và nghĩa!');
+        return;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      appData.vocab.unshift({ id: Date.now(), word, phonetic, meaning, addedAt: todayStr });
+
+      wordInput.value = ''; phoneticInput.value = ''; meaningInput.value = '';
+
+      currentCardIndex = 0; vocabPage = 1;
+      prepareFlashcardDeck();
+      renderFlashcard();
+      renderVocabList();
+      updateStats();
+
+      await saveDataToDrive();
+    }
+
+    async function addPassage() {
+      const titleEl = document.getElementById('passage-title');
+      const enEl = document.getElementById('passage-en');
+      const viEl = document.getElementById('passage-vi');
+
+      const title = titleEl.value.trim();
+      const enText = enEl.value.trim();
+      const viText = viEl.value.trim();
+
+      if (!title || !enText) {
+        alert('Vui lòng nhập Title và Tiếng Anh!');
+        return;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (!appData.passages) appData.passages = [];
+
+      appData.passages.unshift({
+        id: Date.now(),
+        title,
+        enText,
+        viText,
+        addedAt: todayStr
+      });
+
+      titleEl.value = ''; enEl.value = ''; viEl.value = '';
+      passagePage = 1;
+
+      renderPassageList();
+      updateStats();
+
+      await saveDataToDrive();
+    }
+
+    /* --- VOCAB LIST & PAGINATION --- */
     function getFilteredVocabList() {
       const query = document.getElementById('search-input').value.toLowerCase().trim();
-      if (!query) return vocabData;
-      return vocabData.filter(item => 
+      if (!query) return appData.vocab;
+      return appData.vocab.filter(item => 
         item.word.toLowerCase().includes(query) || 
         item.meaning.toLowerCase().includes(query)
       );
     }
 
     function onSearchInput() {
-      currentPage = 1;
+      vocabPage = 1;
       renderVocabList();
     }
 
     function renderVocabList() {
       const listEl = document.getElementById('vocab-list');
-      const paginationEl = document.getElementById('pagination-controls');
-
       const filteredList = getFilteredVocabList();
 
       if (filteredList.length === 0) {
         listEl.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px 0;">Không tìm thấy từ vựng nào.</p>';
-        paginationEl.innerHTML = '';
+        document.getElementById('pagination-controls').innerHTML = '';
         return;
       }
 
       const totalPages = Math.ceil(filteredList.length / itemsPerPage);
-      if (currentPage > totalPages) currentPage = totalPages;
+      if (vocabPage > totalPages) vocabPage = totalPages;
 
-      const startIndex = (currentPage - 1) * itemsPerPage;
+      const startIndex = (vocabPage - 1) * itemsPerPage;
       const paginatedItems = filteredList.slice(startIndex, startIndex + itemsPerPage);
 
       listEl.innerHTML = paginatedItems.map((item) => `
@@ -915,87 +843,158 @@
         </div>
       `).join('');
 
-      renderPaginationControls(totalPages);
-    }
-
-    function renderPaginationControls(totalPages) {
-      const paginationEl = document.getElementById('pagination-controls');
-      if (totalPages <= 1) {
-        paginationEl.innerHTML = '';
-        return;
-      }
-
-      paginationEl.innerHTML = `
-        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}>⬅️ Trang trước</button>
-        <span style="font-size: 0.9rem; font-weight: 600; color: var(--subtext);">${currentPage} / ${totalPages}</span>
-        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Trang sau ➡️</button>
-      `;
-    }
-
-    function changePage(delta) {
-      currentPage += delta;
-      renderVocabList();
-    }
-
-    async function addWord() {
-      const wordInput = document.getElementById('new-word');
-      const phoneticInput = document.getElementById('new-phonetic');
-      const meaningInput = document.getElementById('new-meaning');
-
-      const word = wordInput.value.trim();
-      const phonetic = phoneticInput.value.trim();
-      const meaning = meaningInput.value.trim();
-
-      if (!word || !meaning) {
-        alert('Vui lòng nhập cả từ/cụm từ và nghĩa!');
-        return;
-      }
-
-      const todayStr = new Date().toISOString().split('T')[0];
-      const newEntry = {
-        id: Date.now(),
-        word,
-        phonetic,
-        meaning,
-        addedAt: todayStr
-      };
-
-      vocabData.unshift(newEntry);
-
-      wordInput.value = '';
-      phoneticInput.value = '';
-      meaningInput.value = '';
-
-      currentCardIndex = 0;
-      currentPage = 1;
-      prepareFlashcardDeck();
-      renderFlashcard();
-      renderVocabList();
-      updateStats();
-
-      if (accessToken && driveFileId) {
-        await updateDriveFile(vocabData);
-      }
+      renderPagination('pagination-controls', vocabPage, totalPages, (delta) => {
+        vocabPage += delta;
+        renderVocabList();
+      });
     }
 
     async function deleteWord(id) {
-      if (!confirm('Bạn có chắc chắn muốn xóa từ vựng này khỏi danh sách?')) return;
-
-      vocabData = vocabData.filter(item => item.id !== id);
-
+      if (!confirm('Bạn có chắc chắn muốn xóa từ vựng này?')) return;
+      appData.vocab = appData.vocab.filter(item => item.id !== id);
       prepareFlashcardDeck();
-      if (currentCardIndex >= flashcardDeck.length) {
-        currentCardIndex = Math.max(0, flashcardDeck.length - 1);
-      }
       renderFlashcard();
       renderVocabList();
       updateStats();
+      await saveDataToDrive();
+    }
 
-      if (accessToken && driveFileId) {
-        await updateDriveFile(vocabData);
+    /* --- PASSAGE LIST & PAGINATION --- */
+    function renderPassageList() {
+      const listEl = document.getElementById('passage-list');
+      const passages = appData.passages || [];
+
+      if (passages.length === 0) {
+        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px 0;">Chưa có bài đọc nào. Hãy thêm ở khung bên trên!</p>';
+        document.getElementById('passage-pagination').innerHTML = '';
+        return;
+      }
+
+      const totalPages = Math.ceil(passages.length / itemsPerPage);
+      if (passagePage > totalPages) passagePage = totalPages;
+
+      const startIndex = (passagePage - 1) * itemsPerPage;
+      const paginatedItems = passages.slice(startIndex, startIndex + itemsPerPage);
+
+      listEl.innerHTML = paginatedItems.map((item) => `
+        <div class="list-item">
+          <div class="list-info" onclick="openReadingModal(${item.id})">
+            <div class="list-title">${escapeHtml(item.title)}</div>
+            <div class="list-preview">${escapeHtml(item.enText)}</div>
+          </div>
+          <div class="action-btns">
+            <button class="icon-btn delete-btn" onclick="deletePassage(${item.id})" title="Xóa đoạn văn">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+
+      renderPagination('passage-pagination', passagePage, totalPages, (delta) => {
+        passagePage += delta;
+        renderPassageList();
+      });
+    }
+
+    async function deletePassage(id) {
+      if (!confirm('Bạn có chắc muốn xóa đoạn văn này?')) return;
+      appData.passages = appData.passages.filter(item => item.id !== id);
+      renderPassageList();
+      updateStats();
+      await saveDataToDrive();
+    }
+
+    function renderPagination(containerId, currentPage, totalPages, onPageChange) {
+      const el = document.getElementById(containerId);
+      if (totalPages <= 1) {
+        el.innerHTML = '';
+        return;
+      }
+      el.innerHTML = `
+        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" ${currentPage === 1 ? 'disabled' : ''} id="${containerId}-prev">⬅️ Trang trước</button>
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--subtext);">${currentPage} / ${totalPages}</span>
+        <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" ${currentPage === totalPages ? 'disabled' : ''} id="${containerId}-next">Trang sau ➡️</button>
+      `;
+
+      document.getElementById(`${containerId}-prev`).onclick = () => onPageChange(-1);
+      document.getElementById(`${containerId}-next`).onclick = () => onPageChange(1);
+    }
+
+    /* --- MODAL READING POP-UP & SYNC SCROLL --- */
+    function openReadingModal(id) {
+      const item = appData.passages.find(p => p.id === id);
+      if (!item) return;
+
+      activePassageId = id;
+      document.getElementById('modal-passage-title').innerText = item.title;
+      document.getElementById('col-en').innerText = item.enText;
+      document.getElementById('col-vi').innerText = item.viText || '';
+
+      document.getElementById('reading-modal').classList.add('active');
+      
+      setTimeout(() => {
+        document.getElementById('col-en').scrollTop = 0;
+        document.getElementById('col-vi').scrollTop = 0;
+      }, 50);
+    }
+
+    function closeReadingModal(e) {
+      if (e && e.target !== e.currentTarget && e.type === 'click') return;
+      
+      // Flash save if debouncing pending
+      if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveViContentImmediate();
+      }
+
+      document.getElementById('reading-modal').classList.remove('active');
+      activePassageId = null;
+    }
+
+    function setupScrollSync() {
+      const colEn = document.getElementById('col-en');
+      const colVi = document.getElementById('col-vi');
+
+      const sync = (source, target) => {
+        if (isSyncingScroll) return;
+        isSyncingScroll = true;
+
+        const maxSource = source.scrollHeight - source.clientHeight;
+        const maxTarget = target.scrollHeight - target.clientHeight;
+
+        if (maxSource > 0 && maxTarget > 0) {
+          const percentage = source.scrollTop / maxSource;
+          target.scrollTop = percentage * maxTarget;
+        }
+
+        requestAnimationFrame(() => {
+          isSyncingScroll = false;
+        });
+      };
+
+      colEn.addEventListener('scroll', () => sync(colEn, colVi));
+      colVi.addEventListener('scroll', () => sync(colVi, colEn));
+    }
+
+    function onViContentChange() {
+      if (!activePassageId) return;
+
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        saveViContentImmediate();
+      }, 800);
+    }
+
+    async function saveViContentImmediate() {
+      if (!activePassageId) return;
+      const newViText = document.getElementById('col-vi').innerText;
+      
+      const target = appData.passages.find(p => p.id === activePassageId);
+      if (target && target.viText !== newViText) {
+        target.viText = newViText;
+        await saveDataToDrive();
       }
     }
 
+    /* --- HELPERS --- */
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
