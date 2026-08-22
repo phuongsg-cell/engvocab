@@ -9,6 +9,16 @@
   <script src="https://apis.google.com/js/api.js" async defer></script>
   
   <style>
+    /* Nhập Font Bookerly & Serif dự phòng từ Google Fonts CDN */
+    @import url('https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap');
+
+    @font-face {
+      font-family: 'Bookerly';
+      src: local('Bookerly'), url('https://fonts.gstatic.com/s/literata/v35/J7a4npd14ab5964d3-As.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
+
     :root {
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
@@ -235,12 +245,13 @@
     }
 
     .modal-header {
-      padding: 16px 20px;
+      padding: 12px 20px;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: #f8fafc;
+      gap: 10px;
     }
     .modal-title {
       font-size: 1.25rem;
@@ -248,8 +259,23 @@
       color: var(--primary);
       text-align: center;
       flex: 1;
-      padding: 0 20px;
     }
+
+    .font-control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--subtext);
+    }
+    .font-select {
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+
     .modal-close-btn {
       background: transparent;
       border: none;
@@ -269,16 +295,32 @@
       background: var(--border);
     }
 
+    /* ĐỊNH DẠNG KIỂU TIỂU THUYẾT HIỆN ĐẠI */
     .passage-column {
       background: #ffffff;
-      padding: 24px;
+      padding: 28px 32px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      font-size: 1.05rem;
-      line-height: 1.8;
-      white-space: pre-wrap;
+      font-size: 1.1rem;
+      line-height: 1.75;
+      white-space: pre-line;
       word-break: break-word;
       outline: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Không thụt đầu dòng, khoảng cách đoạn 6pt */
+    .passage-column p, 
+    .passage-column div {
+      text-indent: 0 !important;
+      margin-top: 0;
+      margin-bottom: 6pt;
+    }
+
+    /* Phông Bookerly Kindle */
+    .passage-column.font-bookerly {
+      font-family: 'Bookerly', 'Literata', Georgia, Cambria, 'Times New Roman', Times, serif;
+      letter-spacing: -0.01em;
     }
 
     .passage-column.en-side {
@@ -393,6 +435,7 @@
     @media (max-width: 640px) {
       .modal-body { grid-template-columns: 1fr; }
       .passage-column.en-side { border-right: none; border-bottom: 1px solid var(--border); }
+      .modal-header { flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -513,14 +556,20 @@
   <div class="modal-overlay" id="reading-modal" onclick="closeReadingModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div style="width: 30px;"></div>
+        <div class="font-control-group">
+          <label for="font-style-select">Font:</label>
+          <select id="font-style-select" class="font-select" onchange="changeReadingFont(this.value)">
+            <option value="bookerly" selected>Bookerly (Kindle)</option>
+            <option value="sans">System Sans-serif</option>
+          </select>
+        </div>
         <div class="modal-title" id="modal-passage-title">Reading Passage</div>
         <button class="modal-close-btn" onclick="closeReadingModal()">✕</button>
       </div>
 
       <div class="modal-body">
-        <div class="passage-column en-side" id="col-en" contenteditable="true" oninput="onPassageContentChange()"></div>
-        <div class="passage-column vi-side" id="col-vi" contenteditable="true" oninput="onPassageContentChange()" onmouseup="handleViSelection(event)"></div>
+        <div class="passage-column en-side font-bookerly" id="col-en" contenteditable="true" oninput="onPassageContentChange()"></div>
+        <div class="passage-column vi-side font-bookerly" id="col-vi" contenteditable="true" oninput="onPassageContentChange()" onmouseup="handleViSelection(event)"></div>
       </div>
       <div class="save-indicator" id="save-indicator">✓ Auto-saved</div>
     </div>
@@ -585,6 +634,18 @@
         }
       });
     };
+
+    function changeReadingFont(fontName) {
+      const colEn = document.getElementById('col-en');
+      const colVi = document.getElementById('col-vi');
+      if (fontName === 'bookerly') {
+        colEn.classList.add('font-bookerly');
+        colVi.classList.add('font-bookerly');
+      } else {
+        colEn.classList.remove('font-bookerly');
+        colVi.classList.remove('font-bookerly');
+      }
+    }
 
     function initGapi() {
       if (typeof gapi === 'undefined') return;
