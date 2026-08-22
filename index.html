@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Vocabulary Flashcard & Reading Passage Hub</title>
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -31,6 +31,12 @@
       padding: 20px;
       max-width: 800px;
       margin: 0 auto;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
     }
 
     .header { text-align: center; margin-bottom: 20px; }
@@ -208,6 +214,7 @@
       justify-content: center;
       align-items: center;
       padding: 20px;
+      touch-action: none;
     }
     .modal-overlay.active { display: flex; }
     
@@ -224,6 +231,7 @@
       display: flex;
       flex-direction: column;
       border: 1px solid var(--border);
+      touch-action: auto;
     }
 
     .modal-header {
@@ -265,6 +273,7 @@
       background: #ffffff;
       padding: 24px;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       font-size: 1.05rem;
       line-height: 1.8;
       white-space: pre-wrap;
@@ -550,7 +559,8 @@
 
     let activePassageId = null;
     let saveTimeout = null;
-    let isSyncingScroll = false;
+    let activeScrollSource = null;
+    let scrollTimeout = null;
     let savedRange = null;
 
     window.onload = () => {
@@ -1064,6 +1074,7 @@
       document.getElementById('col-en').innerHTML = item.enText || '';
       document.getElementById('col-vi').innerHTML = item.viText || '';
 
+      document.body.classList.add('modal-open');
       document.getElementById('reading-modal').classList.add('active');
       
       setTimeout(() => {
@@ -1080,6 +1091,7 @@
         savePassageContentImmediate();
       }
 
+      document.body.classList.remove('modal-open');
       document.getElementById('reading-modal').classList.remove('active');
       document.getElementById('selection-toolbar').style.display = 'none';
       activePassageId = null;
@@ -1089,9 +1101,11 @@
       const colEn = document.getElementById('col-en');
       const colVi = document.getElementById('col-vi');
 
-      const sync = (source, target) => {
-        if (isSyncingScroll) return;
-        isSyncingScroll = true;
+      const handleScroll = (source, target) => {
+        if (activeScrollSource && activeScrollSource !== source) return;
+        activeScrollSource = source;
+
+        clearTimeout(scrollTimeout);
 
         const maxSource = source.scrollHeight - source.clientHeight;
         const maxTarget = target.scrollHeight - target.clientHeight;
@@ -1101,13 +1115,16 @@
           target.scrollTop = percentage * maxTarget;
         }
 
-        requestAnimationFrame(() => {
-          isSyncingScroll = false;
-        });
+        scrollTimeout = setTimeout(() => {
+          activeScrollSource = null;
+        }, 100);
       };
 
-      colEn.addEventListener('scroll', () => sync(colEn, colVi));
-      colVi.addEventListener('scroll', () => sync(colVi, colEn));
+      colEn.addEventListener('scroll', () => handleScroll(colEn, colVi), { passive: true });
+      colVi.addEventListener('scroll', () => handleScroll(colVi, colEn), { passive: true });
+      
+      colEn.addEventListener('touchstart', () => { activeScrollSource = colEn; }, { passive: true });
+      colVi.addEventListener('touchstart', () => { activeScrollSource = colVi; }, { passive: true });
     }
 
     function onPassageContentChange() {
@@ -1149,11 +1166,9 @@
         return;
       }
 
-      // Lưu trữ Range chọn chuẩn xác
       savedRange = sel.getRangeAt(0).cloneRange();
       const rect = savedRange.getBoundingClientRect();
 
-      // Hiển thị Toolbar chính xác theo tọa độ viewport
       toolbar.style.top = `${rect.top - 45}px`;
       toolbar.style.left = `${rect.left + (rect.width / 2) - 60}px`;
       toolbar.style.display = 'flex';
