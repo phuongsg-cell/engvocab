@@ -491,13 +491,13 @@
   <div class="card">
     <h2>➕ Add New Vocabulary</h2>
     <div class="input-group">
-      <input type="text" id="new-word" placeholder="Word or Phrase (Example: Recommendation)">
+      <input type="text" id="new-word" placeholder="Word or Phrase (Example: Recommendation)" oninput="autoSaveDraft()">
     </div>
     <div class="input-group">
-      <input type="text" id="new-phonetic" placeholder="IPA Transcription (Example: /ˌrek.ə.menˈdeɪ.ʃən/) - (optional)">
+      <input type="text" id="new-phonetic" placeholder="IPA Transcription (Example: /ˌrek.ə.menˈdeɪ.ʃən/) - (optional)" oninput="autoSaveDraft()">
     </div>
     <div class="input-group">
-      <input type="text" id="new-meaning" placeholder="Meaning (Example: Lời khuyên, sự giới thiệu)">
+      <input type="text" id="new-meaning" placeholder="Meaning (Example: Lời khuyên, sự giới thiệu)" oninput="autoSaveDraft()">
     </div>
     <button id="add-btn" class="btn" style="width: 100%; margin-top: 6px;" onclick="addWord()" disabled>
       Save Vocabulary
@@ -508,13 +508,13 @@
   <div class="card">
     <h2>📄 Add New Reading Text</h2>
     <div class="input-group">
-      <input type="text" id="passage-title" placeholder="Title (Ví dụ: The Future of AI)">
+      <input type="text" id="passage-title" placeholder="Title (Ví dụ: The Future of AI)" oninput="autoSaveDraft()">
     </div>
     <div class="input-group">
-      <textarea id="passage-en" placeholder="Đoạn văn tiếng Anh..."></textarea>
+      <textarea id="passage-en" placeholder="Đoạn văn tiếng Anh..." oninput="autoSaveDraft()"></textarea>
     </div>
     <div class="input-group">
-      <textarea id="passage-vi" placeholder="Phần dịch tiếng Việt..."></textarea>
+      <textarea id="passage-vi" placeholder="Phần dịch tiếng Việt..." oninput="autoSaveDraft()"></textarea>
     </div>
     <button id="add-passage-btn" class="btn" style="width: 100%; margin-top: 6px;" onclick="addPassage()" disabled>
       Save Reading Passage
@@ -615,6 +615,7 @@
     window.onload = () => {
       initGapi();
       initGis();
+      restoreDraft();
       prepareFlashcardDeck();
       renderFlashcard();
       renderVocabList();
@@ -634,6 +635,52 @@
         }
       });
     };
+
+    /* --- AUTOSAVE DRAFT FOR INPUT FIELDS --- */
+    function autoSaveDraft() {
+      const draft = {
+        word: document.getElementById('new-word').value,
+        phonetic: document.getElementById('new-phonetic').value,
+        meaning: document.getElementById('new-meaning').value,
+        passageTitle: document.getElementById('passage-title').value,
+        passageEn: document.getElementById('passage-en').value,
+        passageVi: document.getElementById('passage-vi').value
+      };
+      localStorage.setItem('form_input_draft', JSON.stringify(draft));
+    }
+
+    function restoreDraft() {
+      const draftStr = localStorage.getItem('form_input_draft');
+      if (!draftStr) return;
+      try {
+        const draft = JSON.parse(draftStr);
+        if (draft.word) document.getElementById('new-word').value = draft.word;
+        if (draft.phonetic) document.getElementById('new-phonetic').value = draft.phonetic;
+        if (draft.meaning) document.getElementById('new-meaning').value = draft.meaning;
+        if (draft.passageTitle) document.getElementById('passage-title').value = draft.passageTitle;
+        if (draft.passageEn) document.getElementById('passage-en').value = draft.passageEn;
+        if (draft.passageVi) document.getElementById('passage-vi').value = draft.passageVi;
+      } catch (e) {
+        console.error("Lỗi khi khôi phục bản nháp:", e);
+      }
+    }
+
+    function clearDraftInput(type) {
+      const draftStr = localStorage.getItem('form_input_draft');
+      let draft = draftStr ? JSON.parse(draftStr) : {};
+
+      if (type === 'vocab') {
+        draft.word = '';
+        draft.phonetic = '';
+        draft.meaning = '';
+      } else if (type === 'passage') {
+        draft.passageTitle = '';
+        draft.passageEn = '';
+        draft.passageVi = '';
+      }
+
+      localStorage.setItem('form_input_draft', JSON.stringify(draft));
+    }
 
     function changeReadingFont(fontName) {
       const colEn = document.getElementById('col-en');
@@ -914,11 +961,9 @@
     /* --- HELPER FORMAT TEXT --- */
     function formatToParagraphs(rawText) {
       if (!rawText) return '';
-      // Nếu văn bản đã chứa các thẻ HTML như <p> hoặc <div> thì giữ nguyên
       if (/<(?:p|div|br)\b[^>]*>/i.test(rawText)) {
         return rawText;
       }
-      // Ngược lại, chia theo dòng và bọc vào các thẻ <p>
       return rawText
         .split('\n')
         .map(line => `<p>${line.trim()}</p>`)
@@ -944,6 +989,7 @@
       appData.vocab.unshift({ id: Date.now(), word, phonetic, meaning, addedAt: todayStr });
 
       wordInput.value = ''; phoneticInput.value = ''; meaningInput.value = '';
+      clearDraftInput('vocab');
 
       currentCardIndex = 0; vocabPage = 1;
       prepareFlashcardDeck();
@@ -980,6 +1026,7 @@
       });
 
       titleEl.value = ''; enEl.value = ''; viEl.value = '';
+      clearDraftInput('passage');
       passagePage = 1;
 
       renderPassageList();
