@@ -295,7 +295,6 @@
       background: var(--border);
     }
 
-    /* ĐỊNH DẠNG KIỂU TIỂU THUYẾT HIỆN ĐẠI */
     .passage-column {
       background: #ffffff;
       padding: 28px 32px;
@@ -309,7 +308,6 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    /* Không thụt đầu dòng, khoảng cách đoạn 6pt cho cả hai bên */
     .passage-column p, 
     .passage-column div {
       text-indent: 0 !important;
@@ -317,7 +315,6 @@
       margin-bottom: 6pt;
     }
 
-    /* Phông Bookerly Kindle */
     .passage-column.font-bookerly {
       font-family: 'Bookerly', 'Literata', Georgia, Cambria, 'Times New Roman', Times, serif;
       letter-spacing: -0.01em;
@@ -339,7 +336,6 @@
       background: #ffffff;
     }
 
-    /* Highlight & Note styling */
     .hl-yellow {
       background-color: #fef08a;
       padding: 0 2px;
@@ -384,7 +380,6 @@
       visibility: visible;
     }
 
-    /* Context Toolbar for Selection */
     .selection-toolbar {
       position: fixed;
       display: none;
@@ -589,6 +584,7 @@
     let tokenClient;
     let accessToken = null;
     let driveFileId = null;
+    let authPromiseResolver = null;
 
     let appData = {
       vocab: [
@@ -615,6 +611,7 @@
     window.onload = () => {
       initGapi();
       initGis();
+      restoreLocalCache();
       restoreDraft();
       prepareFlashcardDeck();
       renderFlashcard();
@@ -636,7 +633,25 @@
       });
     };
 
-    /* --- AUTOSAVE DRAFT FOR INPUT FIELDS --- */
+    /* --- LOCAL CACHE & DRAFT LOGIC --- */
+    function saveToLocalCache() {
+      localStorage.setItem('app_data_cache', JSON.stringify(appData));
+    }
+
+    function restoreLocalCache() {
+      const cached = localStorage.getItem('app_data_cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === 'object') {
+            appData = parsed;
+          }
+        } catch (e) {
+          console.error("Lỗi khi đọc local cache:", e);
+        }
+      }
+    }
+
     function autoSaveDraft() {
       const draft = {
         word: document.getElementById('new-word').value,
@@ -694,6 +709,7 @@
       }
     }
 
+    /* --- AUTHENTICATION & TOKEN REFRESH --- */
     function initGapi() {
       if (typeof gapi === 'undefined') return;
       gapi.load('client', async () => {
@@ -709,15 +725,33 @@
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: async (resp) => {
-          if (resp.error) return;
+          if (resp.error) {
+            console.error("Lỗi Auth:", resp);
+            if (authPromiseResolver) {
+              authPromiseResolver(false);
+              authPromiseResolver = null;
+            }
+            return;
+          }
           accessToken = resp.access_token;
           const expiresIn = resp.expires_in || 3600;
-          const expiresAt = Date.now() + expiresIn * 1000;
+          const expiresAt = Date.now() + (expiresIn - 300) * 1000;
 
           localStorage.setItem('gdrive_token', accessToken);
           localStorage.setItem('gdrive_expires_at', expiresAt);
 
-          onAuthenticated();
+          if (typeof gapi !== 'undefined' && gapi.client) {
+            gapi.client.setToken({ access_token: accessToken });
+          }
+
+          updateStatus(true);
+
+          if (authPromiseResolver) {
+            authPromiseResolver(true);
+            authPromiseResolver = null;
+          } else {
+            await syncFromDrive();
+          }
         },
       });
     }
@@ -758,11 +792,25 @@
     }
 
     async function onAuthenticated() {
-      if (typeof gapi !== 'undefined' && gapi.client) {
-        gapi.client.setToken({ access_token: accessToken });
-      }
       updateStatus(true);
       await syncFromDrive();
+    }
+
+    /* Đảm bảo token luôn active trước khi lưu */
+    async function ensureAuthenticated() {
+      const expiresAt = localStorage.getItem('gdrive_expires_at');
+      if (accessToken && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
+        return true;
+      }
+
+      if (!tokenClient) initGis();
+      if (!tokenClient) return false;
+
+      return new Promise((resolve) => {
+        authPromiseResolver = resolve;
+        // Thử gia hạn im lặng không prompt, nếu không được mới bung pop-up
+        tokenClient.requestAccessToken({ prompt: '' });
+      });
     }
 
     function updateStatus(isOnline) {
@@ -797,6 +845,7 @@
       document.getElementById('stat-today').innerText = vocabToday + passageToday;
     }
 
+    /* --- DRIVE SYNC & SAVE --- */
     async function syncFromDrive() {
       if (typeof gapi === 'undefined' || !gapi.client || !gapi.client.drive) return;
       try {
@@ -827,6 +876,7 @@
           driveFileId = await createNewDriveFile(appData);
         }
 
+        saveToLocalCache();
         currentCardIndex = 0;
         vocabPage = 1;
         passagePage = 1;
@@ -836,7 +886,7 @@
         renderPassageList();
         updateStats();
       } catch (err) {
-        console.error('Lỗi tải dữ liệu:', err);
+        console.error('Lỗi tải dữ liệu từ Drive:', err);
         if (err.status === 401) clearSession();
       }
     }
@@ -868,9 +918,23 @@
     }
 
     async function saveDataToDrive() {
-      if (!accessToken || !driveFileId) return;
+      // 1. Luôn lưu vào LocalStorage trước để bảo vệ dữ liệu tuyệt đối
+      saveToLocalCache();
+
+      // 2. Kiểm tra & Re-authenticate nếu phiên làm việc hết hạn
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) {
+        alert('Phiên đăng nhập Google Drive đã hết hạn. Vui lòng nhấn "Sign-in Drive" để tiếp tục đồng bộ!');
+        return false;
+      }
+
+      if (!driveFileId) {
+        await syncFromDrive();
+        if (!driveFileId) return false;
+      }
+
       try {
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
           method: 'PATCH',
           headers: {
             'Authorization': 'Bearer ' + accessToken,
@@ -878,9 +942,23 @@
           },
           body: JSON.stringify(appData),
         });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            clearSession();
+            alert('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại Google Drive!');
+          } else {
+            throw new Error(`HTTP Error status: ${response.status}`);
+          }
+          return false;
+        }
+
         showSaveIndicator();
+        return true;
       } catch (err) {
         console.error("Lỗi khi lưu Drive:", err);
+        alert("Không thể lưu lên Google Drive. Dữ liệu đã được lưu tạm ở máy nội bộ!");
+        return false;
       }
     }
 
@@ -988,16 +1066,17 @@
       const todayStr = new Date().toISOString().split('T')[0];
       appData.vocab.unshift({ id: Date.now(), word, phonetic, meaning, addedAt: todayStr });
 
-      wordInput.value = ''; phoneticInput.value = ''; meaningInput.value = '';
-      clearDraftInput('vocab');
+      const savedSuccess = await saveDataToDrive();
+      if (savedSuccess) {
+        wordInput.value = ''; phoneticInput.value = ''; meaningInput.value = '';
+        clearDraftInput('vocab');
+      }
 
       currentCardIndex = 0; vocabPage = 1;
       prepareFlashcardDeck();
       renderFlashcard();
       renderVocabList();
       updateStats();
-
-      await saveDataToDrive();
     }
 
     async function addPassage() {
@@ -1025,14 +1104,15 @@
         addedAt: todayStr
       });
 
-      titleEl.value = ''; enEl.value = ''; viEl.value = '';
-      clearDraftInput('passage');
-      passagePage = 1;
+      const savedSuccess = await saveDataToDrive();
+      if (savedSuccess) {
+        titleEl.value = ''; enEl.value = ''; viEl.value = '';
+        clearDraftInput('passage');
+      }
 
+      passagePage = 1;
       renderPassageList();
       updateStats();
-
-      await saveDataToDrive();
     }
 
     /* --- VOCAB LIST & PAGINATION --- */
