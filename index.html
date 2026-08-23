@@ -309,7 +309,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    /* Không thụt đầu dòng, khoảng cách đoạn 6pt */
+    /* Không thụt đầu dòng, khoảng cách đoạn 6pt cho cả hai bên */
     .passage-column p, 
     .passage-column div {
       text-indent: 0 !important;
@@ -911,6 +911,20 @@
       speakText(flashcardDeck[currentCardIndex].word);
     }
 
+    /* --- HELPER FORMAT TEXT --- */
+    function formatToParagraphs(rawText) {
+      if (!rawText) return '';
+      // Nếu văn bản đã chứa các thẻ HTML như <p> hoặc <div> thì giữ nguyên
+      if (/<(?:p|div|br)\b[^>]*>/i.test(rawText)) {
+        return rawText;
+      }
+      // Ngược lại, chia theo dòng và bọc vào các thẻ <p>
+      return rawText
+        .split('\n')
+        .map(line => `<p>${line.trim()}</p>`)
+        .join('');
+    }
+
     /* --- ADD VOCABULARY & PASSAGE --- */
     async function addWord() {
       const wordInput = document.getElementById('new-word');
@@ -960,8 +974,8 @@
       appData.passages.unshift({
         id: Date.now(),
         title,
-        enText,
-        viText,
+        enText: formatToParagraphs(enText),
+        viText: formatToParagraphs(viText),
         addedAt: todayStr
       });
 
@@ -1132,8 +1146,8 @@
 
       activePassageId = id;
       document.getElementById('modal-passage-title').innerText = item.title;
-      document.getElementById('col-en').innerHTML = item.enText || '';
-      document.getElementById('col-vi').innerHTML = item.viText || '';
+      document.getElementById('col-en').innerHTML = formatToParagraphs(item.enText) || '';
+      document.getElementById('col-vi').innerHTML = formatToParagraphs(item.viText) || '';
 
       document.body.classList.add('modal-open');
       document.getElementById('reading-modal').classList.add('active');
