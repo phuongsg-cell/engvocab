@@ -520,7 +520,8 @@
   <div class="card">
     <h2>📚 Reading Passages List</h2>
     <div class="filter-bar">
-      <select id="passage-sort" onchange="renderPassageList()">
+      <input type="text" id="passage-search-input" placeholder="🔍 Search passages by title..." oninput="onPassageSearchInput()">
+      <select id="passage-sort" style="width: 220px;" onchange="renderPassageList()">
         <option value="time-desc">Thời gian: Mới nhất</option>
         <option value="time-asc">Thời gian: Cũ nhất</option>
         <option value="alpha-asc">Tên bài: A ➡️ Z</option>
@@ -796,7 +797,6 @@
       await syncFromDrive();
     }
 
-    /* Đảm bảo token luôn active trước khi lưu */
     async function ensureAuthenticated() {
       const expiresAt = localStorage.getItem('gdrive_expires_at');
       if (accessToken && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
@@ -808,7 +808,6 @@
 
       return new Promise((resolve) => {
         authPromiseResolver = resolve;
-        // Thử gia hạn im lặng không prompt, nếu không được mới bung pop-up
         tokenClient.requestAccessToken({ prompt: '' });
       });
     }
@@ -918,10 +917,8 @@
     }
 
     async function saveDataToDrive() {
-      // 1. Luôn lưu vào LocalStorage trước để bảo vệ dữ liệu tuyệt đối
       saveToLocalCache();
 
-      // 2. Kiểm tra & Re-authenticate nếu phiên làm việc hết hạn
       const isAuthenticated = await ensureAuthenticated();
       if (!isAuthenticated) {
         alert('Phiên đăng nhập Google Drive đã hết hạn. Vui lòng nhấn "Sign-in Drive" để tiếp tục đồng bộ!');
@@ -1101,6 +1098,7 @@
         title,
         enText: formatToParagraphs(enText),
         viText: formatToParagraphs(viText),
+        scrollRatio: 0,
         addedAt: todayStr
       });
 
@@ -1192,9 +1190,16 @@
       await saveDataToDrive();
     }
 
-    /* --- PASSAGE LIST & PAGINATION --- */
+    /* --- PASSAGE LIST & PAGINATION & SEARCH BY TITLE --- */
     function getSortedPassageList() {
       let passages = [...(appData.passages || [])];
+      
+      // Tìm kiếm đoạn văn theo title
+      const query = document.getElementById('passage-search-input') ? document.getElementById('passage-search-input').value.toLowerCase().trim() : '';
+      if (query) {
+        passages = passages.filter(p => p.title && p.title.toLowerCase().includes(query));
+      }
+
       const sortVal = document.getElementById('passage-sort').value;
 
       passages.sort((a, b) => {
@@ -1208,12 +1213,17 @@
       return passages;
     }
 
+    function onPassageSearchInput() {
+      passagePage = 1;
+      renderPassageList();
+    }
+
     function renderPassageList() {
       const listEl = document.getElementById('passage-list');
       const passages = getSortedPassageList();
 
       if (passages.length === 0) {
-        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px 0;">Chưa có bài đọc nào. Hãy thêm ở khung bên trên!</p>';
+        listEl.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px 0;">Không tìm thấy bài đọc nào.</p>';
         document.getElementById('passage-pagination').innerHTML = '';
         return;
       }
@@ -1266,7 +1276,7 @@
       document.getElementById(`${containerId}-next`).onclick = () => onPageChange(1);
     }
 
-    /* --- MODAL READING POP-UP & SYNC SCROLL --- */
+    /* --- MODAL READING POP-UP & AUTO SCROLL POSITION LOGIC --- */
     function openReadingModal(id) {
       const item = appData.passages.find(p => p.id === id);
       if (!item) return;
@@ -1279,10 +1289,18 @@
       document.body.classList.add('modal-open');
       document.getElementById('reading-modal').classList.add('active');
       
+      // Tự động khôi phục lại vị trí đang đọc trước đó
       setTimeout(() => {
-        document.getElementById('col-en').scrollTop = 0;
-        document.getElementById('col-vi').scrollTop = 0;
-      }, 50);
+        const colEn = document.getElementById('col-en');
+        const colVi = document.getElementById('col-vi');
+        const ratio = item.scrollRatio || 0;
+
+        const maxEn = colEn.scrollHeight - colEn.clientHeight;
+        const maxVi = colVi.scrollHeight - colVi.clientHeight;
+
+        if (maxEn > 0) colEn.scrollTop = ratio * maxEn;
+        if (maxVi > 0) colVi.scrollTop = ratio * maxVi;
+      }, 100);
     }
 
     function closeReadingModal(e) {
@@ -1290,8 +1308,8 @@
       
       if (saveTimeout) {
         clearTimeout(saveTimeout);
-        savePassageContentImmediate();
       }
+      savePassageContentImmediate();
 
       document.body.classList.remove('modal-open');
       document.getElementById('reading-modal').classList.remove('active');
@@ -1312,14 +1330,25 @@
         const maxSource = source.scrollHeight - source.clientHeight;
         const maxTarget = target.scrollHeight - target.clientHeight;
 
-        if (maxSource > 0 && maxTarget > 0) {
+        if (maxSource > 0) {
           const percentage = source.scrollTop / maxSource;
-          target.scrollTop = percentage * maxTarget;
+          if (maxTarget > 0) {
+            target.scrollTop = percentage * maxTarget;
+          }
+
+          // Cập nhật vị trí cuộn đang đọc vào đoạn văn
+          if (activePassageId) {
+            const targetPassage = appData.passages.find(p => p.id === activePassageId);
+            if (targetPassage) {
+              targetPassage.scrollRatio = percentage;
+            }
+          }
         }
 
         scrollTimeout = setTimeout(() => {
           activeScrollSource = null;
-        }, 100);
+          onPassageContentChange(); // Lưu lại vị trí cuộn sau khi dừng trượt
+        }, 300);
       };
 
       colEn.addEventListener('scroll', () => handleScroll(colEn, colVi), { passive: true });
@@ -1344,9 +1373,16 @@
       const newViText = document.getElementById('col-vi').innerHTML;
       
       const target = appData.passages.find(p => p.id === activePassageId);
-      if (target && (target.viText !== newViText || target.enText !== newEnText)) {
-        target.enText = newEnText;
-        target.viText = newViText;
+      if (target) {
+        let hasChanged = false;
+
+        if (target.enText !== newEnText || target.viText !== newViText) {
+          target.enText = newEnText;
+          target.viText = newViText;
+          hasChanged = true;
+        }
+
+        // Luôn lưu dữ liệu local & Drive nếu có sự thay đổi văn bản hoặc vị trí cuộn
         await saveDataToDrive();
       }
     }
