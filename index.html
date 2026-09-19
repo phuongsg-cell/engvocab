@@ -9,7 +9,6 @@
   <script src="https://apis.google.com/js/api.js" async defer></script>
   
   <style>
-    /* Nhập Font Bookerly & Serif dự phòng từ Google Fonts CDN */
     @import url('https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap');
 
     @font-face {
@@ -295,6 +294,7 @@
       background: var(--border);
     }
 
+    /* ĐỊNH DẠNG ĐỒNG NHẤT CHO NỘI DUNG */
     .passage-column {
       background: #ffffff;
       padding: 28px 32px;
@@ -302,17 +302,21 @@
       -webkit-overflow-scrolling: touch;
       font-size: 1.1rem;
       line-height: 1.75;
-      white-space: pre-line;
       word-break: break-word;
       outline: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
+    /* Đảm bảo toàn bộ thẻ p, div hoặc văn bản thuần đều áp dụng chung kiểu lề & cỡ chữ */
     .passage-column p, 
     .passage-column div {
+      font-family: inherit !important;
+      font-size: inherit !important;
+      line-height: inherit !important;
+      color: inherit !important;
       text-indent: 0 !important;
-      margin-top: 0;
-      margin-bottom: 6pt;
+      margin-top: 0 !important;
+      margin-bottom: 1rem !important;
     }
 
     .passage-column.font-bookerly {
@@ -634,18 +638,43 @@
       });
     };
 
-    /* --- PLAIN PASTE LOGIC --- */
+    /* --- PLAIN PASTE VỚI THẺ <P> CHUẨN --- */
     function handlePlainPaste(e) {
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-      if (document.queryCommandSupported('insertText')) {
-        document.execCommand('insertText', false, text);
+      if (!text) return;
+
+      // Chia văn bản dán vào thành từng dòng và bọc trong thẻ <p>
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+      const htmlToInsert = lines.length > 0 
+        ? lines.map(line => `<p>${escapeHtml(line.trim())}</p>`).join('') 
+        : `<p>${escapeHtml(text.trim())}</p>`;
+
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlToInsert;
+        
+        const frag = document.createDocumentFragment();
+        let node, lastNode;
+        while ((node = tempDiv.firstChild)) {
+          lastNode = frag.appendChild(node);
+        }
+        range.insertNode(frag);
+        
+        if (lastNode) {
+          range.setStartAfter(lastNode);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
       } else {
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-        sel.deleteFromDocument();
-        sel.getRangeAt(0).insertNode(document.createTextNode(text));
+        e.target.innerHTML += htmlToInsert;
       }
+      
       onPassageContentChange();
     }
 
@@ -1055,7 +1084,8 @@
         return rawText;
       }
       return rawText
-        .split('\n')
+        .split(/\r?\n/)
+        .filter(line => line.trim() !== '')
         .map(line => `<p>${line.trim()}</p>`)
         .join('');
     }
