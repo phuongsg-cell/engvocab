@@ -564,8 +564,8 @@
       </div>
 
       <div class="modal-body">
-        <div class="passage-column en-side font-bookerly" id="col-en" contenteditable="true" oninput="onPassageContentChange()"></div>
-        <div class="passage-column vi-side font-bookerly" id="col-vi" contenteditable="true" oninput="onPassageContentChange()" onmouseup="handleViSelection(event)"></div>
+        <div class="passage-column en-side font-bookerly" id="col-en" contenteditable="true" oninput="onPassageContentChange()" onpaste="handlePlainPaste(event)"></div>
+        <div class="passage-column vi-side font-bookerly" id="col-vi" contenteditable="true" oninput="onPassageContentChange()" onmouseup="handleViSelection(event)" onpaste="handlePlainPaste(event)"></div>
       </div>
       <div class="save-indicator" id="save-indicator">✓ Auto-saved</div>
     </div>
@@ -633,6 +633,21 @@
         }
       });
     };
+
+    /* --- PLAIN PASTE LOGIC --- */
+    function handlePlainPaste(e) {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      if (document.queryCommandSupported('insertText')) {
+        document.execCommand('insertText', false, text);
+      } else {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        sel.deleteFromDocument();
+        sel.getRangeAt(0).insertNode(document.createTextNode(text));
+      }
+      onPassageContentChange();
+    }
 
     /* --- LOCAL CACHE & DRAFT LOGIC --- */
     function saveToLocalCache() {
@@ -1194,7 +1209,6 @@
     function getSortedPassageList() {
       let passages = [...(appData.passages || [])];
       
-      // Tìm kiếm đoạn văn theo title
       const query = document.getElementById('passage-search-input') ? document.getElementById('passage-search-input').value.toLowerCase().trim() : '';
       if (query) {
         passages = passages.filter(p => p.title && p.title.toLowerCase().includes(query));
@@ -1289,7 +1303,6 @@
       document.body.classList.add('modal-open');
       document.getElementById('reading-modal').classList.add('active');
       
-      // Tự động khôi phục lại vị trí đang đọc trước đó
       setTimeout(() => {
         const colEn = document.getElementById('col-en');
         const colVi = document.getElementById('col-vi');
@@ -1336,7 +1349,6 @@
             target.scrollTop = percentage * maxTarget;
           }
 
-          // Cập nhật vị trí cuộn đang đọc vào đoạn văn
           if (activePassageId) {
             const targetPassage = appData.passages.find(p => p.id === activePassageId);
             if (targetPassage) {
@@ -1347,7 +1359,7 @@
 
         scrollTimeout = setTimeout(() => {
           activeScrollSource = null;
-          onPassageContentChange(); // Lưu lại vị trí cuộn sau khi dừng trượt
+          onPassageContentChange();
         }, 300);
       };
 
@@ -1374,15 +1386,11 @@
       
       const target = appData.passages.find(p => p.id === activePassageId);
       if (target) {
-        let hasChanged = false;
-
         if (target.enText !== newEnText || target.viText !== newViText) {
           target.enText = newEnText;
           target.viText = newViText;
-          hasChanged = true;
         }
 
-        // Luôn lưu dữ liệu local & Drive nếu có sự thay đổi văn bản hoặc vị trí cuộn
         await saveDataToDrive();
       }
     }
