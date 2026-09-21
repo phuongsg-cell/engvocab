@@ -590,6 +590,7 @@
     let accessToken = null;
     let driveFileId = null;
     let authPromiseResolver = null;
+    let refreshTimer = null;
 
     let appData = {
       vocab: [
@@ -644,7 +645,6 @@
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       if (!text) return;
 
-      // Chia văn bản dán vào thành từng dòng và bọc trong thẻ <p>
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
       const htmlToInsert = lines.length > 0 
         ? lines.map(line => `<p>${escapeHtml(line.trim())}</p>`).join('') 
@@ -754,7 +754,7 @@
       }
     }
 
-    /* --- AUTHENTICATION & TOKEN REFRESH --- */
+    /* --- AUTHENTICATION & SILENT TOKEN REFRESH --- */
     function initGapi() {
       if (typeof gapi === 'undefined') return;
       gapi.load('client', async () => {
@@ -790,6 +790,7 @@
           }
 
           updateStatus(true);
+          scheduleTokenRefresh(expiresIn);
 
           if (authPromiseResolver) {
             authPromiseResolver(true);
@@ -801,6 +802,23 @@
       });
     }
 
+    function scheduleTokenRefresh(expiresInSeconds) {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      // Đặt hẹn giờ tự động gia hạn token ngầm trước khi hết hạn 5 phút
+      const refreshMs = Math.max((expiresInSeconds - 300) * 1000, 60000);
+      refreshTimer = setTimeout(() => {
+        silentRefreshToken();
+      }, refreshMs);
+    }
+
+    function silentRefreshToken() {
+      if (!tokenClient) initGis();
+      if (tokenClient) {
+        // Gọi gia hạn ngầm mà không hiển thị popup chọn tài khoản
+        tokenClient.requestAccessToken({ prompt: '' });
+      }
+    }
+
     function restoreSession() {
       const savedToken = localStorage.getItem('gdrive_token');
       const expiresAt = localStorage.getItem('gdrive_expires_at');
@@ -810,7 +828,12 @@
         if (typeof gapi !== 'undefined' && gapi.client) {
           gapi.client.setToken({ access_token: accessToken });
         }
+        const remainingSeconds = Math.floor((parseInt(expiresAt, 10) - Date.now()) / 1000);
+        scheduleTokenRefresh(remainingSeconds + 300);
         onAuthenticated();
+      } else if (savedToken) {
+        // Hết hạn token, thực hiện làm mới ngầm ngay khi khôi phục session
+        silentRefreshToken();
       } else {
         clearSession();
       }
@@ -818,6 +841,7 @@
 
     function clearSession() {
       accessToken = null;
+      if (refreshTimer) clearTimeout(refreshTimer);
       localStorage.removeItem('gdrive_token');
       localStorage.removeItem('gdrive_expires_at');
       updateStatus(false);
@@ -930,7 +954,9 @@
         updateStats();
       } catch (err) {
         console.error('Lỗi tải dữ liệu từ Drive:', err);
-        if (err.status === 401) clearSession();
+        if (err.status === 401) {
+          silentRefreshToken();
+        }
       }
     }
 
@@ -965,7 +991,7 @@
 
       const isAuthenticated = await ensureAuthenticated();
       if (!isAuthenticated) {
-        alert('Phiên đăng nhập Google Drive đã hết hạn. Vui lòng nhấn "Sign-in Drive" để tiếp tục đồng bộ!');
+        console.warn('Đang chờ xác thực lại Google Drive...');
         return false;
       }
 
@@ -986,19 +1012,19 @@
 
         if (!response.ok) {
           if (response.status === 401) {
-            clearSession();
-            alert('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại Google Drive!');
-          } else {
-            throw new Error(`HTTP Error status: ${response.status}`);
+            // Thử cấp lại token ngầm và lưu lại nếu bị ngắt đột ngột
+            const refreshed = await ensureAuthenticated();
+            if (refreshed) {
+              return await saveDataToDrive();
+            }
           }
-          return false;
+          throw new Error(`HTTP Error status: ${response.status}`);
         }
 
         showSaveIndicator();
         return true;
       } catch (err) {
         console.error("Lỗi khi lưu Drive:", err);
-        alert("Không thể lưu lên Google Drive. Dữ liệu đã được lưu tạm ở máy nội bộ!");
         return false;
       }
     }
